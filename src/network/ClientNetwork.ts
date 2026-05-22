@@ -11,7 +11,7 @@ export class ClientNetwork {
   async join(hostPeerId: string) {
     this.hostPeerId = hostPeerId
     this.peerService.init()
-    this.peerService.connectTo(hostPeerId)
+    const connection = this.peerService.connectTo(hostPeerId)
     // listen for snapshot and other messages
     this.peerService.onData((peerId, data) => {
       if (!data || !data.type) return
@@ -20,14 +20,14 @@ export class ClientNetwork {
       }
     })
 
+    await new Promise<void>((resolve, reject) => {
+      connection.on('open', () => resolve())
+      connection.on('error', () => reject(new Error('connection failed')))
+      window.setTimeout(() => resolve(), 1200)
+    })
+
     // request initial snapshot
-    setTimeout(() => {
-      try {
-        this.peerService.sendTo(hostPeerId, { type: 'requestSnapshot' })
-      } catch (e) {
-        // ignore if not yet connected
-      }
-    }, 500)
+    this.peerService.sendTo(hostPeerId, { type: 'requestSnapshot' })
   }
 
   sendAction(payload: any) {

@@ -10,7 +10,7 @@ export class HostNetwork {
     private getSnapshot: () => Snapshot,
     private onClientAction: (peerId: string, action: any) => void
   ) {
-    this.peerService = new PeerService()
+    this.peerService = new PeerService(roomCode)
   }
 
   start() {

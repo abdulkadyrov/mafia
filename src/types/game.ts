@@ -143,6 +143,7 @@ export type ClientGameSnapshot = Omit<GameSnapshot, 'players'> & {
 export type ClientAction =
   | {
       type: 'joinRoom'
+      playerId: PlayerId
       playerName: string
     }
   | {
