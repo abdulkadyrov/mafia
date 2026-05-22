@@ -10,6 +10,7 @@ export class PeerService {
   private connections: Map<string, DataConnection> = new Map()
   private _openPromise: Promise<string> | null = null
   private _openResolve: ((id: string) => void) | null = null
+  private _dataHandlers: Array<(peerId: string, data: any) => void> = []
 
   constructor(private id?: string) {}
 
@@ -38,7 +39,11 @@ export class PeerService {
   private setupConnection(conn: DataConnection) {
     this.connections.set(conn.peer, conn)
     conn.on('data', (data) => {
-      console.debug('data from', conn.peer, data)
+      try {
+        this._dataHandlers.forEach((h) => h(conn.peer, data))
+      } catch (err) {
+        console.error('data handler error', err)
+      }
     })
     conn.on('close', () => this.connections.delete(conn.peer))
   }
@@ -46,6 +51,20 @@ export class PeerService {
   broadcast(event: PeerEvent) {
     for (const conn of this.connections.values()) {
       conn.send(event)
+    }
+  }
+
+  sendTo(peerId: string, event: PeerEvent) {
+    const conn = this.connections.get(peerId)
+    if (!conn) throw new Error('connection not found: ' + peerId)
+    conn.send(event)
+  }
+
+  onData(cb: (peerId: string, data: any) => void) {
+    this._dataHandlers.push(cb)
+    return () => {
+      const idx = this._dataHandlers.indexOf(cb)
+      if (idx >= 0) this._dataHandlers.splice(idx, 1)
     }
   }
 
