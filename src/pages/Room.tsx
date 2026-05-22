@@ -21,6 +21,7 @@ import { HostNetwork } from '../network/HostNetwork'
 import { ClientNetwork } from '../network/ClientNetwork'
 import { saveArchivedGame } from '../services/storage/GameArchiveService'
 import { PlayerRow } from '../entities/player/PlayerRow'
+import { createAppPath } from '../shared/routing/basePath'
 import { Button } from '../shared/ui/Button'
 import { Panel } from '../shared/ui/Panel'
 import { GameOverPanel } from '../widgets/GameOverPanel'
@@ -69,7 +70,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
     hostRef.current = host
     host.start().then(async (peerId) => {
       setHostPeerId(peerId)
-      const inviteUrl = `${location.origin}/room/${roomCode}?peer=${encodeURIComponent(peerId)}`
+      const inviteUrl = `${location.origin}${createAppPath(`/room/${roomCode}`)}?peer=${encodeURIComponent(peerId)}`
       setInviteQr(await generateQRCode(inviteUrl))
     })
 

@@ -2,6 +2,7 @@ import React from 'react'
 import { defaultRoomSettings } from '../game/defaults'
 import { Lobby } from '../pages/Lobby'
 import { Room } from '../pages/Room'
+import { createAppPath, getPathWithoutBase } from '../shared/routing/basePath'
 import { RoomSettings } from '../types/game'
 
 type RouteState =
@@ -18,7 +19,8 @@ type RouteState =
 
 export const App: React.FC = () => {
   const [route, setRoute] = React.useState<RouteState>(() => {
-    const pathMatch = location.pathname.match(/\/room\/([^/?]+)/)
+    const appPath = getPathWithoutBase(location.pathname)
+    const pathMatch = appPath.match(/\/room\/([^/?]+)/)
     const params = new URLSearchParams(location.search)
     const peer = params.get('peer') ?? undefined
 
@@ -42,7 +44,7 @@ export const App: React.FC = () => {
       {route.name === 'lobby' ? (
         <Lobby
           onCreateRoom={(roomCode, settings, developerMode) => {
-            history.replaceState(null, '', `/room/${roomCode}`)
+            history.replaceState(null, '', createAppPath(`/room/${roomCode}`))
             setRoute({
               name: 'room',
               roomCode,
@@ -51,7 +53,7 @@ export const App: React.FC = () => {
             })
           }}
           onJoinRoom={(roomCode) => {
-            history.replaceState(null, '', `/room/${roomCode}`)
+            history.replaceState(null, '', createAppPath(`/room/${roomCode}`))
             setRoute({
               name: 'room',
               roomCode,
@@ -63,7 +65,7 @@ export const App: React.FC = () => {
       ) : (
         <Room
           onLeave={() => {
-            history.replaceState(null, '', '/')
+            history.replaceState(null, '', createAppPath('/'))
             setRoute({ name: 'lobby' })
           }}
           roomCode={route.roomCode}
