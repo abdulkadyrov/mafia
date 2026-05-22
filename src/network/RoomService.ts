@@ -1,4 +1,4 @@
-import QRCode from 'qrcode'
+import { toDataURL } from 'qrcode'
 
 export function generateRoomCode(): string {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
@@ -11,5 +11,5 @@ export function generateRoomCode(): string {
 }
 
 export async function generateQRCode(data: string): Promise<string> {
-  return QRCode.toDataURL(data, { margin: 1, width: 300 })
+  return toDataURL(data, { margin: 1, width: 300 })
 }

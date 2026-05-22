@@ -1,17 +1,21 @@
 {
   "short_name": "Mafia",
-  "name": "Mafia — LAN PWA",
-  "icons": [
-    {
-      "src": "/icon.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml"
-    }
-  ],
-  "start_url": "/",
-  "scope": "/",
+  "name": "Mafia LAN PWA",
+  "description": "Локальная автоматическая игра Мафия для Wi-Fi, hotspot и LAN.",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#0B0F19",
   "theme_color": "#8B5CF6",
-  "description": "Локальная PWA игра Мафия — играйте по локальной сети без интернета"
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["games", "entertainment"]
 }

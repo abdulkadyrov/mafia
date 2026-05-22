@@ -1,30 +1,35 @@
 import React from 'react'
-import { Player, Phase } from '../game/types'
+import { createInitialSnapshot } from '../game/engine'
+import { GameSnapshot } from '../types/game'
 
-export type GameState = {
-  players: Player[]
-  phase: Phase
-  round: number
+type GameStore = {
+  snapshot: GameSnapshot
+  setSnapshot: React.Dispatch<React.SetStateAction<GameSnapshot>>
 }
 
-const initialState: GameState = {
-  players: [],
-  phase: 'Lobby',
-  round: 0
-}
+const GameStateContext = React.createContext<GameStore | null>(null)
 
-const GameStateContext = React.createContext<{
-  state: GameState
-  setState: React.Dispatch<React.SetStateAction<GameState>>
-} | null>(null)
+export const GameStateProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
+  const [snapshot, setSnapshot] = React.useState<GameSnapshot>(() => createInitialSnapshot({ roomCode: 'LOCAL-00' }))
 
-export const GameStateProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
-  const [state, setState] = React.useState<GameState>(initialState)
-  return <GameStateContext.Provider value={{ state, setState }}>{children}</GameStateContext.Provider>
+  return React.createElement(
+    GameStateContext.Provider,
+    {
+      value: {
+        snapshot,
+        setSnapshot
+      }
+    },
+    children
+  )
 }
 
 export function useGameState() {
-  const ctx = React.useContext(GameStateContext)
-  if (!ctx) throw new Error('useGameState must be used inside GameStateProvider')
-  return ctx
+  const context = React.useContext(GameStateContext)
+
+  if (!context) {
+    throw new Error('useGameState must be used inside GameStateProvider')
+  }
+
+  return context
 }

@@ -1,39 +1,38 @@
-const CACHE_NAME = 'mafia-shell-v1'
-const PRECACHE_URLS = ['/', '/index.html', '/manifest.json', '/icon.svg', '/src/styles/index.css']
+const CACHE_NAME = 'mafia-shell-v2'
+const APP_SHELL = ['.', 'index.html', 'manifest.json', 'icon.svg']
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
-  )
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)))
 })
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) return caches.delete(key)
-        })
-      )
-    )
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.map((key) => (key === CACHE_NAME ? undefined : caches.delete(key)))))
+      .then(() => self.clients.claim())
   )
 })
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) return cachedResponse
+
       return fetch(event.request)
-        .then((response) => {
-          // optionally cache runtime
-          return response
+        .then((networkResponse) => {
+          const responseCopy = networkResponse.clone()
+
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseCopy)
+          })
+
+          return networkResponse
         })
-        .catch(() => {
-          // fallback to offline page or icon
-          return caches.match('/index.html')
-        })
+        .catch(() => caches.match('index.html'))
     })
   )
 })

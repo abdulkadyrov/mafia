@@ -15,7 +15,7 @@ export class PeerService {
   constructor(private id?: string) {}
 
   init() {
-    this.peer = new Peer(this.id)
+    this.peer = this.id ? new Peer(this.id) : new Peer()
     this._openPromise = new Promise((resolve) => {
       this._openResolve = resolve
     })
