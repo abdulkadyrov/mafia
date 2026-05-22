@@ -9,6 +9,13 @@ export function createAppPath(path: string): string {
   return `${basePath}${normalizedPath}`
 }
 
+export function createHashAppPath(path: string): string {
+  const basePath = getBasePath()
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+
+  return `${basePath}#${normalizedPath}`
+}
+
 export function getPathWithoutBase(pathname: string): string {
   const basePath = getBasePath()
 

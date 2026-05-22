@@ -2,7 +2,7 @@ import React from 'react'
 import { defaultRoomSettings } from '../game/defaults'
 import { Lobby } from '../pages/Lobby'
 import { Room } from '../pages/Room'
-import { createAppPath, getPathWithoutBase } from '../shared/routing/basePath'
+import { createAppPath, createHashAppPath, getPathWithoutBase } from '../shared/routing/basePath'
 import { RoomSettings } from '../types/game'
 
 type RouteState =
@@ -20,9 +20,9 @@ type RouteState =
 
 export const App: React.FC = () => {
   const [route, setRoute] = React.useState<RouteState>(() => {
-    const appPath = getPathWithoutBase(location.pathname)
-    const pathMatch = appPath.match(/\/room\/([^/?]+)/)
-    const params = new URLSearchParams(location.search)
+    const parsedRoute = getBrowserRoute()
+    const pathMatch = parsedRoute.path.match(/\/room\/([^/?]+)/)
+    const params = new URLSearchParams(parsedRoute.search)
     const peer = params.get('peer') ?? undefined
 
     if (pathMatch) {
@@ -49,7 +49,7 @@ export const App: React.FC = () => {
       {route.name === 'lobby' ? (
         <Lobby
           onCreateRoom={(roomCode, settings, developerMode, playerName) => {
-            history.replaceState(null, '', createAppPath(`/room/${roomCode}`))
+            history.replaceState(null, '', createHashAppPath(`/room/${roomCode}`))
             setRoute({
               name: 'room',
               roomCode,
@@ -59,7 +59,7 @@ export const App: React.FC = () => {
             })
           }}
           onJoinRoom={(roomCode, playerName) => {
-            history.replaceState(null, '', createAppPath(`/room/${roomCode}`))
+            history.replaceState(null, '', createHashAppPath(`/room/${roomCode}`))
             setRoute({
               name: 'room',
               roomCode,
@@ -85,6 +85,24 @@ export const App: React.FC = () => {
       )}
     </div>
   )
+}
+
+function getBrowserRoute(): { path: string; search: string } {
+  const hash = location.hash.startsWith('#') ? location.hash.slice(1) : ''
+
+  if (hash) {
+    const [path, search = ''] = hash.split('?')
+
+    return {
+      path,
+      search
+    }
+  }
+
+  return {
+    path: getPathWithoutBase(location.pathname),
+    search: location.search.startsWith('?') ? location.search.slice(1) : location.search
+  }
 }
 
 function safelyParseStoredName(storedName: string): string {

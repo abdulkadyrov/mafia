@@ -21,7 +21,7 @@ import { ClientNetwork } from '../network/ClientNetwork'
 import { HostNetwork } from '../network/HostNetwork'
 import { generateQRCode } from '../network/RoomService'
 import { saveArchivedGame } from '../services/storage/GameArchiveService'
-import { createAppPath } from '../shared/routing/basePath'
+import { createHashAppPath } from '../shared/routing/basePath'
 import { Button } from '../shared/ui/Button'
 import { ClientAction, GamePhase, GameSnapshot, PlayerId, RoomSettings, phaseLabels } from '../types/game'
 
@@ -71,7 +71,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
 
     hostRef.current = host
     host.start().then(async (peerId) => {
-      const inviteUrl = `${location.origin}${createAppPath(`/room/${roomCode}`)}?peer=${encodeURIComponent(peerId)}`
+      const inviteUrl = `${location.origin}${createHashAppPath(`/room/${roomCode}`)}?peer=${encodeURIComponent(peerId)}`
       setInviteQr(await generateQRCode(inviteUrl))
     })
 
