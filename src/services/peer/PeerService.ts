@@ -8,13 +8,19 @@ export type PeerEvent = {
 export class PeerService {
   private peer: Peer | null = null
   private connections: Map<string, DataConnection> = new Map()
+  private _openPromise: Promise<string> | null = null
+  private _openResolve: ((id: string) => void) | null = null
 
   constructor(private id?: string) {}
 
   init() {
     this.peer = new Peer(this.id)
+    this._openPromise = new Promise((resolve) => {
+      this._openResolve = resolve
+    })
     this.peer.on('open', (id) => {
       console.log('Peer open', id)
+      this._openResolve?.(id)
     })
     this.peer.on('connection', (conn) => {
       console.log('Incoming connection from', conn.peer)
@@ -41,6 +47,19 @@ export class PeerService {
     for (const conn of this.connections.values()) {
       conn.send(event)
     }
+  }
+
+  getId() {
+    return this.peer?.id
+  }
+
+  async waitForOpen(): Promise<string> {
+    if (this._openPromise) return this._openPromise
+    if (this.peer && this.peer.id) return Promise.resolve(this.peer.id)
+    return new Promise((resolve) => {
+      this._openResolve = resolve
+      this._openPromise = new Promise((r) => (this._openResolve = r))
+    })
   }
 
   destroy() {
