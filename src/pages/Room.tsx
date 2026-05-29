@@ -24,6 +24,7 @@ import { samplePlayerNames } from '../game/defaults'
 import { useCountdown } from '../hooks/useCountdown'
 import { ClientNetwork } from '../network/ClientNetwork'
 import { HostNetwork } from '../network/HostNetwork'
+import { isLanRelayMode, LanRelayClientNetwork, LanRelayHostNetwork } from '../network/LanRelayNetwork'
 import { createRoomPeerId, generateQRCode } from '../network/RoomService'
 import { saveArchivedGame } from '../services/storage/GameArchiveService'
 import { createHashAppPath } from '../shared/routing/basePath'
@@ -41,6 +42,9 @@ type Props = {
   joinPeerId?: string
 }
 
+type HostConnection = HostNetwork | LanRelayHostNetwork
+type ClientConnection = ClientNetwork | LanRelayClientNetwork
+
 export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMode, playerName, joinPeerId }) => {
   const isClient = Boolean(joinPeerId)
   const localPlayerId = React.useMemo(() => createId('player'), [])
@@ -57,11 +61,12 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
     })
   })
   const [inviteQr, setInviteQr] = React.useState<string>()
+  const useLanRelay = isLanRelayMode()
   const [networkStatus, setNetworkStatus] = React.useState<'idle' | 'hosting' | 'connecting' | 'connected' | 'failed'>('idle')
   const [networkMessage, setNetworkMessage] = React.useState('')
   const [selectedPlayerId, setSelectedPlayerId] = React.useState<PlayerId>(localPlayerId)
-  const hostRef = React.useRef<HostNetwork>()
-  const clientRef = React.useRef<ClientNetwork>()
+  const hostRef = React.useRef<HostConnection>()
+  const clientRef = React.useRef<ClientConnection>()
   const snapshotRef = React.useRef(snapshot)
   const secondsLeft = useCountdown(snapshot.phaseEndsAt)
   const selfPlayer = snapshot.players.find((player) => player.id === localPlayerId) ?? snapshot.players[0]
@@ -73,26 +78,33 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
   React.useEffect(() => {
     if (isClient || !displayName.trim()) return undefined
 
-    const host = new HostNetwork(roomCode, () => snapshotRef.current, (_peerId, action: ClientAction) => {
-      setSnapshot((currentSnapshot) => applyClientAction(currentSnapshot, action))
-    })
+    const host = useLanRelay
+      ? new LanRelayHostNetwork(roomCode, () => snapshotRef.current, (_peerId, action: ClientAction) => {
+          setSnapshot((currentSnapshot) => applyClientAction(currentSnapshot, action))
+        })
+      : new HostNetwork(roomCode, () => snapshotRef.current, (_peerId, action: ClientAction) => {
+          setSnapshot((currentSnapshot) => applyClientAction(currentSnapshot, action))
+        })
 
     hostRef.current = host
-    host.start().then(async (peerId) => {
-      setNetworkStatus('hosting')
-      setNetworkMessage(`Комната готова: ${peerId}`)
-      const inviteUrl = `${location.origin}${createHashAppPath(`/room/${roomCode}`)}?peer=${encodeURIComponent(peerId)}`
-      setInviteQr(await generateQRCode(inviteUrl))
-    }).catch((error) => {
-      setNetworkStatus('failed')
-      setNetworkMessage(error instanceof Error ? error.message : 'Не удалось создать комнату')
-    })
+    host
+      .start()
+      .then(async (peerId) => {
+        setNetworkStatus('hosting')
+        setNetworkMessage(useLanRelay ? 'LAN-сервер готов. Подключайте телефон по этому же адресу.' : `Комната готова: ${peerId}`)
+        const inviteUrl = `${location.origin}${createHashAppPath(`/room/${roomCode}`)}?peer=${encodeURIComponent(peerId)}`
+        setInviteQr(await generateQRCode(inviteUrl))
+      })
+      .catch((error) => {
+        setNetworkStatus('failed')
+        setNetworkMessage(error instanceof Error ? error.message : 'Не удалось создать комнату')
+      })
 
     return () => {
       host.stop()
       hostRef.current = undefined
     }
-  }, [displayName, isClient, roomCode])
+  }, [displayName, isClient, roomCode, useLanRelay])
 
   React.useEffect(() => {
     if (!joinPeerId || !displayName.trim()) return undefined
@@ -100,19 +112,29 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
     setNetworkStatus('connecting')
     setNetworkMessage('Подключение к комнате...')
 
-    const client = new ClientNetwork(
-      (remoteSnapshot) => {
-        setSnapshot(remoteSnapshot)
-      },
-      (message) => {
-        setNetworkStatus('failed')
-        setNetworkMessage(message)
-      }
-    )
+    const client = useLanRelay
+      ? new LanRelayClientNetwork(
+          (remoteSnapshot) => {
+            setSnapshot(remoteSnapshot)
+          },
+          (message) => {
+            setNetworkStatus('failed')
+            setNetworkMessage(message)
+          }
+        )
+      : new ClientNetwork(
+          (remoteSnapshot) => {
+            setSnapshot(remoteSnapshot)
+          },
+          (message) => {
+            setNetworkStatus('failed')
+            setNetworkMessage(message)
+          }
+        )
 
     clientRef.current = client
     client
-      .join(createRoomPeerId(joinPeerId))
+      .join(useLanRelay ? joinPeerId : createRoomPeerId(joinPeerId))
       .then(() => {
         setNetworkStatus('connected')
         setNetworkMessage('Подключено')
@@ -131,7 +153,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
       client.destroy()
       clientRef.current = undefined
     }
-  }, [displayName, joinPeerId, localPlayerId])
+  }, [displayName, joinPeerId, localPlayerId, useLanRelay])
 
   React.useEffect(() => {
     if (!isClient) {
