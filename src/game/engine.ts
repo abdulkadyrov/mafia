@@ -1,5 +1,6 @@
 import {
   ClientGameSnapshot,
+  ConfirmationVote,
   DeathNotice,
   GamePhase,
   GameSnapshot,
@@ -15,7 +16,7 @@ import {
 } from '../types/game'
 import { defaultRoomSettings } from './defaults'
 import { createId } from './id'
-import { assignRoles, normalizeRoleSettings } from './roles'
+import { assignRandomRoles, countRoles, normalizeRoleSettings, resetPlayersForGame } from './roles'
 
 type CreateSnapshotInput = {
   roomCode: string
@@ -32,7 +33,8 @@ type CreatePlayerInput = {
 const phaseDurations: Partial<Record<GamePhase, keyof RoomSettings['timers']>> = {
   Night: 'nightSeconds',
   Discussion: 'discussionSeconds',
-  Voting: 'votingSeconds'
+  Voting: 'votingSeconds',
+  Confirmation: 'votingSeconds'
 }
 
 export function createInitialSnapshot(input: CreateSnapshotInput): GameSnapshot {
@@ -46,10 +48,12 @@ export function createInitialSnapshot(input: CreateSnapshotInput): GameSnapshot 
     round: 0,
     hostPeerId: input.hostPeerId,
     votes: [],
+    confirmationVotes: [],
     nightActions: [],
     chatLog: [],
     history: [],
-    phaseStartedAt: Date.now()
+    phaseStartedAt: Date.now(),
+    detectiveKnowledge: {}
   }
 }
 
@@ -95,19 +99,23 @@ export function seedDemoPlayers(snapshot: GameSnapshot, names: string[]): GameSn
 
 export function startGame(snapshot: GameSnapshot): GameSnapshot {
   const normalizedRoles = normalizeRoleSettings(snapshot.settings.roles, snapshot.players.length)
-  const players = assignRoles(snapshot.players, normalizedRoles)
+  const manualRoles = normalizeRoleSettings(countRoles(snapshot.players), snapshot.players.length)
+  const shouldUseManualRoles = snapshot.settings.roleAssignmentMode === 'manual'
+  const players = shouldUseManualRoles ? resetPlayersForGame(snapshot.players) : assignRandomRoles(snapshot.players, normalizedRoles)
 
   const startedSnapshot: GameSnapshot = {
     ...snapshot,
     settings: {
       ...snapshot.settings,
-      roles: normalizedRoles
+      roles: shouldUseManualRoles ? manualRoles : normalizedRoles
     },
     players,
     phase: 'Night',
     round: 1,
     votes: [],
+    confirmationVotes: [],
     nightActions: [],
+    detectiveKnowledge: {},
     winner: undefined,
     mvpPlayerId: undefined,
     lastNightResolution: undefined,
@@ -115,6 +123,33 @@ export function startGame(snapshot: GameSnapshot): GameSnapshot {
   }
 
   return enterPhase(addSystemMessage(startedSnapshot, 'Наступила ночь'), 'Night')
+}
+
+export function updateRoomSettings(snapshot: GameSnapshot, settings: RoomSettings): GameSnapshot {
+  if (snapshot.phase !== 'Lobby') return snapshot
+
+  return {
+    ...snapshot,
+    settings: {
+      ...settings,
+      playerLimit: Math.max(settings.playerLimit, snapshot.players.length),
+      roles: normalizeRoleSettings(settings.roles, snapshot.players.length)
+    }
+  }
+}
+
+export function assignPlayerRole(snapshot: GameSnapshot, playerId: PlayerId, role: Player['role']): GameSnapshot {
+  if (snapshot.phase !== 'Lobby') return snapshot
+
+  return {
+    ...snapshot,
+    players: snapshot.players.map((player) => (player.id === playerId ? { ...player, role } : player)),
+    settings: {
+      ...snapshot.settings,
+      roleAssignmentMode: 'manual',
+      roles: countRoles(snapshot.players.map((player) => (player.id === playerId ? { ...player, role } : player)))
+    }
+  }
 }
 
 export function enterPhase(snapshot: GameSnapshot, phase: GamePhase): GameSnapshot {
@@ -165,9 +200,7 @@ export function resolveNight(snapshot: GameSnapshot): GameSnapshot {
     snapshot.nightActions.filter((action) => action.type === 'doctorHeal').map((action) => action.targetId)
   )
 
-  const killActions = snapshot.nightActions.filter((action) => {
-    return action.type === 'mafiaKill' || action.type === 'detectiveKill'
-  })
+  const killActions = [...getResolvedMafiaKillActions(snapshot), ...snapshot.nightActions.filter((action) => action.type === 'detectiveKill')]
 
   const deaths: DeathNotice[] = []
   const savedPlayerIds: PlayerId[] = []
@@ -213,7 +246,7 @@ export function resolveNight(snapshot: GameSnapshot): GameSnapshot {
       killedBy: death?.killerId ?? player.killedBy,
       deathReason: death?.reason ?? player.deathReason,
       selfHealsUsed: usedSelfHeal ? player.selfHealsUsed + 1 : player.selfHealsUsed,
-      score: calculateNightScore(player, deaths, savedPlayerIds, snapshot.nightActions)
+      score: calculateNightScore(player, deaths, savedPlayerIds, snapshot.nightActions, snapshot)
     }
   })
 
@@ -227,6 +260,7 @@ export function resolveNight(snapshot: GameSnapshot): GameSnapshot {
     ...snapshot,
     players,
     nightActions: [],
+    detectiveKnowledge: buildDetectiveKnowledge(snapshot, detectiveChecks),
     lastNightResolution: resolution
   }
 
@@ -279,7 +313,77 @@ export function resolveVotes(snapshot: GameSnapshot): GameSnapshot {
     .filter(([, votes]) => votes === maxVotes)
     .map(([playerId]) => playerId)
 
-  const eliminatedPlayerId = tiedPlayerIds.length === 1 ? tiedPlayerIds[0] : undefined
+  const resolution: VoteResolution = {
+    eliminatedPlayerId: undefined,
+    tiedPlayerIds: tiedPlayerIds.length > 1 ? tiedPlayerIds : [],
+    confirmationCandidateIds: tiedPlayerIds,
+    votesByTarget,
+    confirmationVotesByTarget: {}
+  }
+
+  if (tiedPlayerIds.length === 0) {
+    return enterPhase(
+      {
+        ...addSystemMessage(snapshot, 'Город не смог выбрать цель'),
+        votes: [],
+        confirmationVotes: [],
+        lastVoteResolution: resolution
+      },
+      'VoteResults'
+    )
+  }
+
+  return enterPhase(
+    {
+      ...addSystemMessage(snapshot, 'Город переходит к подтверждению исключения'),
+      confirmationVotes: [],
+      lastVoteResolution: resolution
+    },
+    'Confirmation'
+  )
+}
+
+export function submitConfirmationVote(snapshot: GameSnapshot, vote: ConfirmationVote): GameSnapshot {
+  const voter = snapshot.players.find((player) => player.id === vote.voterId)
+  const target = snapshot.players.find((player) => player.id === vote.targetId)
+  const candidates = snapshot.lastVoteResolution?.confirmationCandidateIds ?? []
+
+  if (!voter || !target || !voter.alive || !target.alive || snapshot.phase !== 'Confirmation') {
+    return snapshot
+  }
+
+  if (!candidates.includes(vote.targetId)) {
+    return snapshot
+  }
+
+  const votes = snapshot.confirmationVotes.filter((existingVote) => {
+    return existingVote.voterId !== vote.voterId || existingVote.targetId !== vote.targetId
+  })
+
+  return {
+    ...snapshot,
+    confirmationVotes: [...votes, vote]
+  }
+}
+
+export function resolveConfirmation(snapshot: GameSnapshot): GameSnapshot {
+  const candidates = snapshot.lastVoteResolution?.confirmationCandidateIds ?? []
+  const confirmationVotesByTarget = candidates.reduce<Record<PlayerId, { exclude: number; keep: number }>>((accumulator, candidateId) => {
+    accumulator[candidateId] = { exclude: 0, keep: 0 }
+    return accumulator
+  }, {})
+
+  for (const vote of snapshot.confirmationVotes) {
+    const current = confirmationVotesByTarget[vote.targetId]
+    if (!current) continue
+    current[vote.decision] += 1
+  }
+
+  const excludedCandidates = Object.entries(confirmationVotesByTarget)
+    .filter(([, result]) => result.exclude > result.keep)
+    .sort(([, first], [, second]) => second.exclude - first.exclude)
+
+  const eliminatedPlayerId = excludedCandidates[0]?.[0]
 
   const players = snapshot.players.map((player) => {
     const eliminated = player.id === eliminatedPlayerId
@@ -291,20 +395,23 @@ export function resolveVotes(snapshot: GameSnapshot): GameSnapshot {
       ...player,
       alive: eliminated ? false : player.alive,
       deathReason: eliminated ? 'vote' : player.deathReason,
-      score: player.score + betDelta
+      score: player.score + betDelta + (guessedCorrectly && eliminated ? 2 : 0)
     }
   })
 
   const resolution: VoteResolution = {
     eliminatedPlayerId,
-    tiedPlayerIds: tiedPlayerIds.length > 1 ? tiedPlayerIds : [],
-    votesByTarget
+    tiedPlayerIds: snapshot.lastVoteResolution?.tiedPlayerIds ?? [],
+    confirmationCandidateIds: candidates,
+    votesByTarget: snapshot.lastVoteResolution?.votesByTarget ?? {},
+    confirmationVotesByTarget
   }
 
   let resolvedSnapshot: GameSnapshot = {
     ...snapshot,
     players,
     votes: [],
+    confirmationVotes: [],
     lastVoteResolution: resolution
   }
 
@@ -386,7 +493,8 @@ function calculateNightScore(
   player: Player,
   deaths: DeathNotice[],
   savedPlayerIds: PlayerId[],
-  nightActions: NightAction[]
+  nightActions: NightAction[],
+  snapshot: GameSnapshot
 ): number {
   const savedSomeone = nightActions.some((action) => {
     return action.actorId === player.id && action.type === 'doctorHeal' && savedPlayerIds.includes(action.targetId)
@@ -407,13 +515,54 @@ function calculateNightScore(
   let delta = 0
 
   if (savedSomeone) delta += 2
-  if (mafiaKilled) delta += 1
+  if (savedSomeone) delta += 2
+  if (mafiaKilled) delta += 3
 
   if (detectiveTargetDeath) {
-    delta += detectiveTargetDeath.reason === 'detective' ? 3 : 0
+    const killedPlayer = snapshot.players.find((target) => target.id === detectiveTargetDeath.playerId)
+    const knewTarget = (snapshot.detectiveKnowledge[player.id] ?? []).includes(detectiveTargetDeath.playerId)
+
+    if (killedPlayer?.role === 'mafia') {
+      delta += knewTarget ? 3 : 6
+    } else {
+      delta -= 4
+    }
   }
 
   return player.score + delta
+}
+
+function getResolvedMafiaKillActions(snapshot: GameSnapshot): NightAction[] {
+  const mafiaActions = snapshot.nightActions.filter((action) => action.type === 'mafiaKill')
+
+  if (mafiaActions.length === 0) return []
+
+  const aliveMafiaIds = snapshot.players.filter((player) => player.alive && player.role === 'mafia').map((player) => player.id)
+  const votesByTarget = mafiaActions.reduce<Record<PlayerId, NightAction[]>>((accumulator, action) => {
+    accumulator[action.targetId] = [...(accumulator[action.targetId] ?? []), action]
+    return accumulator
+  }, {})
+
+  if (snapshot.settings.mafiaDecisionMode === 'unanimity') {
+    const unanimousTarget = Object.entries(votesByTarget).find(([, actions]) => actions.length === aliveMafiaIds.length)
+    return unanimousTarget ? [unanimousTarget[1][0]] : []
+  }
+
+  const [targetActions] = Object.values(votesByTarget).sort((first, second) => second.length - first.length)
+  return targetActions ? [targetActions[0]] : []
+}
+
+function buildDetectiveKnowledge(
+  snapshot: GameSnapshot,
+  checks: NightResolution['detectiveChecks']
+): Record<PlayerId, PlayerId[]> {
+  const nextKnowledge: Record<PlayerId, PlayerId[]> = { ...snapshot.detectiveKnowledge }
+
+  for (const check of checks) {
+    nextKnowledge[check.detectiveId] = [...new Set([...(nextKnowledge[check.detectiveId] ?? []), check.targetId])]
+  }
+
+  return nextKnowledge
 }
 
 function addNightPublicMessages(snapshot: GameSnapshot, resolution: NightResolution): GameSnapshot {

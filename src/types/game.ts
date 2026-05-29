@@ -10,6 +10,7 @@ export type GamePhase =
   | 'NightResults'
   | 'Discussion'
   | 'Voting'
+  | 'Confirmation'
   | 'VoteResults'
   | 'GameOver'
 
@@ -34,6 +35,8 @@ export type RoomSettings = {
   playerLimit: number
   roles: RoleSettings
   timers: TimerSettings
+  mafiaDecisionMode: 'unanimity' | 'majority'
+  roleAssignmentMode: 'random' | 'manual'
   revealRolesAfterDeath: boolean
   showActionHistory: boolean
   bettingMode: boolean
@@ -74,6 +77,12 @@ export type Vote = {
   bet: number
 }
 
+export type ConfirmationVote = {
+  voterId: PlayerId
+  targetId: PlayerId
+  decision: 'exclude' | 'keep'
+}
+
 export type ChatEntry = {
   id: string
   text: string
@@ -111,7 +120,9 @@ export type NightResolution = {
 export type VoteResolution = {
   eliminatedPlayerId?: PlayerId
   tiedPlayerIds: PlayerId[]
+  confirmationCandidateIds: PlayerId[]
   votesByTarget: Record<PlayerId, number>
+  confirmationVotesByTarget: Record<PlayerId, { exclude: number; keep: number }>
 }
 
 export type Winner = 'mafia' | 'city'
@@ -124,6 +135,7 @@ export type GameSnapshot = {
   round: number
   hostPeerId?: string
   votes: Vote[]
+  confirmationVotes: ConfirmationVote[]
   nightActions: NightAction[]
   chatLog: ChatEntry[]
   history: HistoryEntry[]
@@ -133,6 +145,7 @@ export type GameSnapshot = {
   mvpPlayerId?: PlayerId
   lastNightResolution?: NightResolution
   lastVoteResolution?: VoteResolution
+  detectiveKnowledge: Record<PlayerId, PlayerId[]>
 }
 
 export type ClientGameSnapshot = Omit<GameSnapshot, 'players'> & {
@@ -155,6 +168,10 @@ export type ClientAction =
       vote: Vote
     }
   | {
+      type: 'confirmationVote'
+      vote: ConfirmationVote
+    }
+  | {
       type: 'requestSnapshot'
     }
 
@@ -171,6 +188,7 @@ export const phaseLabels: Record<GamePhase, string> = {
   NightResults: 'Итоги ночи',
   Discussion: 'Обсуждение',
   Voting: 'Голосование',
+  Confirmation: 'Подтверждение',
   VoteResults: 'Итоги голосования',
   GameOver: 'Конец игры'
 }

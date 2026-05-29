@@ -55,7 +55,7 @@ export function normalizeRoleSettings(settings: RoleSettings, playerLimit: numbe
   return safeSettings
 }
 
-export function assignRoles(players: Player[], settings: RoleSettings): Player[] {
+export function assignRandomRoles(players: Player[], settings: RoleSettings): Player[] {
   const deck = shuffle(buildRoleDeck(settings))
 
   return players.map((player, index) => ({
@@ -65,6 +65,17 @@ export function assignRoles(players: Player[], settings: RoleSettings): Player[]
     killedBy: undefined,
     deathReason: undefined,
     selfHealsUsed: 0
+  }))
+}
+
+export function resetPlayersForGame(players: Player[]): Player[] {
+  return players.map((player) => ({
+    ...player,
+    alive: true,
+    killedBy: undefined,
+    deathReason: undefined,
+    selfHealsUsed: 0,
+    score: 0
   }))
 }
 

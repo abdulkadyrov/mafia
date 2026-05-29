@@ -1,7 +1,7 @@
 import React from 'react'
 import { PlayerRow } from '../../entities/player/PlayerRow'
 import { Button } from '../../shared/ui/Button'
-import { GameSnapshot, NightActionType, Player, PlayerId, Vote, roleLabels } from '../../types/game'
+import { ConfirmationVote, GameSnapshot, NightActionType, Player, PlayerId, Vote, roleLabels } from '../../types/game'
 
 type PlayerActionPanelProps = {
   snapshot: GameSnapshot
@@ -11,6 +11,7 @@ type PlayerActionPanelProps = {
   onSelectPlayer: (playerId: PlayerId) => void
   onNightAction: (type: NightActionType, targetId: PlayerId) => void
   onVote: (vote: Vote) => void
+  onConfirmationVote: (vote: ConfirmationVote) => void
 }
 
 export function PlayerActionPanel({
@@ -20,7 +21,8 @@ export function PlayerActionPanel({
   developerMode = false,
   onSelectPlayer,
   onNightAction,
-  onVote
+  onVote,
+  onConfirmationVote
 }: PlayerActionPanelProps) {
   const [selectedAction, setSelectedAction] = React.useState<NightActionType>(getDefaultNightAction(selfPlayer))
   const [bet, setBet] = React.useState(0)
@@ -28,6 +30,8 @@ export function PlayerActionPanel({
   const selectedPlayer = snapshot.players.find((player) => player.id === selectedPlayerId)
   const canUseNightAction = selfPlayer.alive && snapshot.phase === 'Night' && selfPlayer.role !== 'civilian'
   const canVote = selfPlayer.alive && snapshot.phase === 'Voting'
+  const canConfirm = selfPlayer.alive && snapshot.phase === 'Confirmation'
+  const confirmationCandidates = snapshot.lastVoteResolution?.confirmationCandidateIds ?? []
 
   React.useEffect(() => {
     setSelectedAction(getDefaultNightAction(selfPlayer))
@@ -72,8 +76,14 @@ export function PlayerActionPanel({
         </label>
       ) : null}
 
+      {snapshot.phase === 'Night' && selfPlayer.role === 'mafia' ? <MafiaChoices snapshot={snapshot} /> : null}
+      {snapshot.phase === 'Voting' ? <OpenVotes snapshot={snapshot} /> : null}
+      {snapshot.phase === 'Confirmation' ? <ConfirmationVotes snapshot={snapshot} /> : null}
+
       <div className="grid min-h-0 gap-2 overflow-auto pr-1">
-        {aliveTargets.map((player) => (
+        {aliveTargets
+          .filter((player) => (canConfirm ? confirmationCandidates.includes(player.id) : true))
+          .map((player) => (
           <PlayerRow
             key={player.id}
             player={player}
@@ -98,6 +108,24 @@ export function PlayerActionPanel({
         ))}
       </div>
 
+      {canConfirm && selectedPlayer ? (
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="danger"
+            className="h-11 px-3 py-2"
+            onClick={() => onConfirmationVote({ voterId: selfPlayer.id, targetId: selectedPlayer.id, decision: 'exclude' })}
+          >
+            Исключить
+          </Button>
+          <Button
+            className="h-11 px-3 py-2"
+            onClick={() => onConfirmationVote({ voterId: selfPlayer.id, targetId: selectedPlayer.id, decision: 'keep' })}
+          >
+            Оставить
+          </Button>
+        </div>
+      ) : null}
+
       <div className="min-h-10 rounded-xl bg-surface/80 px-4 py-3 text-sm font-medium text-muted">
         {getStatusText(snapshot, selfPlayer, selectedPlayer, selectedAction)}
       </div>
@@ -115,6 +143,7 @@ function getStatusText(
   if (snapshot.phase === 'Night' && selfPlayer.role === 'civilian') return 'Ночь. Ожидайте'
   if (snapshot.phase === 'Night') return selectedPlayer ? `${getActionLabel(selectedAction)}: ${selectedPlayer.name}` : 'Выберите игрока'
   if (snapshot.phase === 'Voting') return selectedPlayer ? `Голос: ${selectedPlayer.name}` : 'Выберите игрока'
+  if (snapshot.phase === 'Confirmation') return selectedPlayer ? `Кандидат: ${selectedPlayer.name}` : 'Выберите кандидата'
   return selectedPlayer ? selectedPlayer.name : 'Выберите игрока'
 }
 
@@ -143,4 +172,63 @@ function getActionLabel(action: NightActionType): string {
   if (action === 'doctorHeal') return 'Лечение'
   if (action === 'detectiveCheck') return 'Проверка'
   return 'Цель'
+}
+
+function MafiaChoices({ snapshot }: { snapshot: GameSnapshot }) {
+  const mafiaActions = snapshot.nightActions.filter((action) => action.type === 'mafiaKill')
+
+  if (mafiaActions.length === 0) return null
+
+  return (
+    <div className="rounded-xl bg-surface/80 px-4 py-3 text-sm text-muted">
+      {mafiaActions.map((action) => {
+        const actor = snapshot.players.find((player) => player.id === action.actorId)
+        const target = snapshot.players.find((player) => player.id === action.targetId)
+
+        return (
+          <p key={action.id} className="font-medium text-text">
+            {actor?.name ?? 'Мафия'} выбрал {target?.name ?? 'цель'}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
+function OpenVotes({ snapshot }: { snapshot: GameSnapshot }) {
+  if (snapshot.votes.length === 0) return null
+
+  return (
+    <div className="rounded-xl bg-surface/80 px-4 py-3 text-sm text-muted">
+      {snapshot.votes.map((vote) => {
+        const voter = snapshot.players.find((player) => player.id === vote.voterId)
+        const target = snapshot.players.find((player) => player.id === vote.targetId)
+
+        return (
+          <p key={vote.voterId} className="font-medium text-text">
+            {voter?.name ?? 'Игрок'} {'->'} {target?.name ?? 'кандидат'}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
+function ConfirmationVotes({ snapshot }: { snapshot: GameSnapshot }) {
+  if (snapshot.confirmationVotes.length === 0) return null
+
+  return (
+    <div className="rounded-xl bg-surface/80 px-4 py-3 text-sm text-muted">
+      {snapshot.confirmationVotes.map((vote) => {
+        const voter = snapshot.players.find((player) => player.id === vote.voterId)
+        const target = snapshot.players.find((player) => player.id === vote.targetId)
+
+        return (
+          <p key={`${vote.voterId}-${vote.targetId}`} className="font-medium text-text">
+            {voter?.name ?? 'Игрок'} {vote.decision === 'exclude' ? 'исключить' : 'оставить'} {target?.name ?? 'кандидата'}
+          </p>
+        )
+      })}
+    </div>
+  )
 }

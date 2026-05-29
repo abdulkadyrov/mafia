@@ -13,9 +13,11 @@ export const defaultRoomSettings: RoomSettings = {
     discussionSeconds: 120,
     votingSeconds: 45
   },
+  mafiaDecisionMode: 'majority',
+  roleAssignmentMode: 'random',
   revealRolesAfterDeath: true,
   showActionHistory: true,
-  bettingMode: true,
+  bettingMode: false,
   privateRoom: false,
   autoStart: false,
   doctorSelfHealsLimit: 1

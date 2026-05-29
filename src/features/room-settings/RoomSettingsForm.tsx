@@ -37,12 +37,9 @@ export function RoomSettingsForm({ settings, onChange }: RoomSettingsFormProps) 
   return (
     <div className="space-y-4">
       <Panel>
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-text">Игроки</h2>
-          <p className="mt-1 text-sm text-muted">Состав и роли синхронизируются хостом.</p>
-        </div>
+        <h2 className="mb-4 text-lg font-semibold text-text">Игроки</h2>
         <NumberField
-          label="Количество игроков"
+          label="Лимит комнаты"
           min={4}
           max={16}
           value={settings.playerLimit}
@@ -84,8 +81,8 @@ export function RoomSettingsForm({ settings, onChange }: RoomSettingsFormProps) 
           <NumberField
             label="Ночь"
             suffix="сек"
-            min={15}
-            max={180}
+            min={10}
+            max={300}
             value={settings.timers.nightSeconds}
             onChange={(nightSeconds) => updateTimers({ nightSeconds })}
           />
@@ -100,7 +97,7 @@ export function RoomSettingsForm({ settings, onChange }: RoomSettingsFormProps) 
           <NumberField
             label="Голосование"
             suffix="сек"
-            min={15}
+            min={10}
             max={180}
             value={settings.timers.votingSeconds}
             onChange={(votingSeconds) => updateTimers({ votingSeconds })}
@@ -109,8 +106,18 @@ export function RoomSettingsForm({ settings, onChange }: RoomSettingsFormProps) 
       </Panel>
 
       <Panel>
-        <h2 className="mb-4 text-lg font-semibold text-text">Дополнительно</h2>
+        <h2 className="mb-4 text-lg font-semibold text-text">Правила</h2>
         <div className="grid gap-3">
+          <Toggle
+            label="Роли назначает администратор"
+            checked={settings.roleAssignmentMode === 'manual'}
+            onChange={(manual) => updateSettings({ roleAssignmentMode: manual ? 'manual' : 'random' })}
+          />
+          <Toggle
+            label="Мафии нужно единогласие"
+            checked={settings.mafiaDecisionMode === 'unanimity'}
+            onChange={(unanimity) => updateSettings({ mafiaDecisionMode: unanimity ? 'unanimity' : 'majority' })}
+          />
           <Toggle
             label="Показывать роли после смерти"
             checked={settings.revealRolesAfterDeath}

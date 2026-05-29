@@ -1,18 +1,23 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { PlayerActionPanel } from '../features/game-actions/PlayerActionPanel'
+import { RoomSettingsForm } from '../features/room-settings/RoomSettingsForm'
 import {
   addPlayer,
+  assignPlayerRole,
   createInitialSnapshot,
   moveToDiscussion,
   moveToNextNight,
   moveToVoting,
+  resolveConfirmation,
   resolveNight,
   resolveVotes,
   seedDemoPlayers,
   startGame,
+  submitConfirmationVote,
   submitNightAction,
-  submitVote
+  submitVote,
+  updateRoomSettings
 } from '../game/engine'
 import { createId } from '../game/id'
 import { samplePlayerNames } from '../game/defaults'
@@ -23,7 +28,9 @@ import { generateQRCode } from '../network/RoomService'
 import { saveArchivedGame } from '../services/storage/GameArchiveService'
 import { createHashAppPath } from '../shared/routing/basePath'
 import { Button } from '../shared/ui/Button'
-import { ClientAction, GamePhase, GameSnapshot, PlayerId, RoomSettings, phaseLabels } from '../types/game'
+import { GameOverPanel } from '../widgets/GameOverPanel'
+import { SystemFeed } from '../widgets/SystemFeed'
+import { ClientAction, GamePhase, GameSnapshot, PlayerId, Role, RoomSettings, phaseLabels, roleLabels } from '../types/game'
 
 type Props = {
   onLeave: () => void
@@ -164,12 +171,15 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
     <motion.main
       animate={{ background: getPhaseBackground(snapshot.phase) }}
       transition={{ duration: 1.2, ease: 'easeInOut' }}
-      className="grid h-screen grid-rows-[auto_1fr_auto] overflow-hidden px-4 py-4 text-text sm:px-6"
+      className={[
+        'grid h-screen grid-rows-[auto_1fr_auto] overflow-hidden px-4 py-4 sm:px-6',
+        snapshot.phase === 'Discussion' ? 'text-[#111111]' : 'text-text'
+      ].join(' ')}
     >
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
         <div>
           <p className="font-mono text-xl font-black">{roomCode}</p>
-          <p className="text-xs font-semibold text-muted">{isClient ? (clientConnected ? 'Клиент' : 'Подключение') : 'Хост'}</p>
+          <p className="text-xs font-semibold text-muted">{isClient ? (clientConnected ? 'Игрок' : 'Подключение') : 'Администратор'}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -194,45 +204,73 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
         </div>
 
         {snapshot.phase === 'Lobby' ? (
-          <div className="grid content-center gap-3">
-            <Button disabled={isClient} onClick={() => updateHostSnapshot((current) => seedDemoPlayers(current, samplePlayerNames))}>
-              Добавить игроков
-            </Button>
-            <Button variant="primary" disabled={isClient || snapshot.players.length < 4} onClick={() => updateHostSnapshot(startGame)}>
-              Старт
-            </Button>
-            <PlayerStrip snapshot={snapshot} selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} developerMode={developerMode} />
+          <div className="grid min-h-0 gap-4 overflow-auto lg:grid-cols-[1fr_1.1fr]">
+            <div className="grid content-start gap-3">
+              <div className="grid grid-cols-2 gap-2">
+                <Button disabled={isClient} onClick={() => updateHostSnapshot((current) => seedDemoPlayers(current, samplePlayerNames))}>
+                  Игроки
+                </Button>
+                <Button variant="primary" disabled={isClient || snapshot.players.length < 4} onClick={() => updateHostSnapshot(startGame)}>
+                  Старт
+                </Button>
+              </div>
+              <PlayerStrip
+                snapshot={snapshot}
+                selectedPlayerId={selectedPlayerId}
+                onSelectPlayer={setSelectedPlayerId}
+                developerMode={developerMode || snapshot.settings.roleAssignmentMode === 'manual'}
+                disabled={isClient}
+                onAssignRole={(playerId, role) => updateHostSnapshot((current) => assignPlayerRole(current, playerId, role))}
+              />
+            </div>
+            <RoomSettingsForm settings={snapshot.settings} onChange={(nextSettings) => updateHostSnapshot((current) => updateRoomSettings(current, nextSettings))} />
           </div>
         ) : selfPlayer ? (
-          <PlayerActionPanel
-            snapshot={snapshot}
-            selfPlayer={selfPlayer}
-            selectedPlayerId={selectedPlayerId}
-            developerMode={developerMode}
-            onSelectPlayer={setSelectedPlayerId}
-            onNightAction={(type, targetId) => {
-              sendAction({
-                type: 'nightAction',
-                action: {
-                  actorId: selfPlayer.id,
-                  targetId,
-                  type
-                }
-              })
-            }}
-            onVote={(vote) => {
-              sendAction({
-                type: 'vote',
-                vote
-              })
-            }}
-          />
+          <div className="grid min-h-0 gap-4 overflow-hidden lg:grid-cols-[1fr_24rem]">
+            <div className="min-h-0 overflow-auto">
+              <GameOverPanel snapshot={snapshot} />
+              {snapshot.phase !== 'GameOver' ? (
+                <PlayerActionPanel
+                  snapshot={snapshot}
+                  selfPlayer={selfPlayer}
+                  selectedPlayerId={selectedPlayerId}
+                  developerMode={developerMode}
+                  onSelectPlayer={setSelectedPlayerId}
+                  onNightAction={(type, targetId) => {
+                    sendAction({
+                      type: 'nightAction',
+                      action: {
+                        actorId: selfPlayer.id,
+                        targetId,
+                        type
+                      }
+                    })
+                  }}
+                  onVote={(vote) => {
+                    sendAction({
+                      type: 'vote',
+                      vote
+                    })
+                  }}
+                  onConfirmationVote={(vote) => {
+                    sendAction({
+                      type: 'confirmationVote',
+                      vote
+                    })
+                  }}
+                />
+              ) : null}
+            </div>
+            <div className="min-h-0 overflow-auto">
+              <SystemFeed snapshot={snapshot} selfPlayerId={selfPlayer.id} />
+            </div>
+          </div>
         ) : null}
       </section>
 
-      <footer className="mx-auto grid w-full max-w-5xl grid-cols-3 gap-2">
+      <footer className="mx-auto grid w-full max-w-5xl grid-cols-3 gap-2 sm:grid-cols-6">
         <PhaseButton phase={snapshot.phase} target="Night" disabled={isClient || snapshot.phase !== 'Night'} onClick={() => updateHostSnapshot(resolveNight)}>
-          Ночь
+          Завершить ночь
         </PhaseButton>
         <PhaseButton
           phase={snapshot.phase}
@@ -240,14 +278,24 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
           disabled={isClient || !['NightResults', 'VoteResults'].includes(snapshot.phase)}
           onClick={() => updateHostSnapshot(snapshot.phase === 'NightResults' ? moveToDiscussion : moveToNextNight)}
         >
-          День
+          День/Ночь
         </PhaseButton>
         <PhaseButton phase={snapshot.phase} target="Voting" disabled={isClient || snapshot.phase !== 'Discussion'} onClick={() => updateHostSnapshot(moveToVoting)}>
-          Голос
+          Голосование
         </PhaseButton>
         {snapshot.phase === 'Voting' ? (
-          <Button className="col-span-3" variant="primary" disabled={isClient} onClick={() => updateHostSnapshot(resolveVotes)}>
-            Итоги
+          <Button className="col-span-3 sm:col-span-1" variant="primary" disabled={isClient} onClick={() => updateHostSnapshot(resolveVotes)}>
+            Завершить
+          </Button>
+        ) : null}
+        {snapshot.phase === 'Confirmation' ? (
+          <Button className="col-span-3 sm:col-span-1" variant="primary" disabled={isClient} onClick={() => updateHostSnapshot(resolveConfirmation)}>
+            Подтвердить
+          </Button>
+        ) : null}
+        {snapshot.phase !== 'Lobby' ? (
+          <Button className="col-span-3 sm:col-span-1" variant="ghost" disabled={isClient} onClick={() => updateHostSnapshot(startGame)}>
+            Рестарт
           </Button>
         ) : null}
       </footer>
@@ -259,27 +307,46 @@ function PlayerStrip({
   snapshot,
   selectedPlayerId,
   developerMode,
-  onSelectPlayer
+  disabled,
+  onSelectPlayer,
+  onAssignRole
 }: {
   snapshot: GameSnapshot
   selectedPlayerId?: PlayerId
   developerMode: boolean
+  disabled: boolean
   onSelectPlayer: (playerId: PlayerId) => void
+  onAssignRole: (playerId: PlayerId, role: Role) => void
 }) {
   return (
     <div className="grid max-h-72 gap-2 overflow-auto">
       {snapshot.players.map((player) => (
-        <button
-          key={player.id}
-          className={[
-            'rounded-xl px-4 py-3 text-left font-semibold transition',
-            selectedPlayerId === player.id ? 'bg-accent text-white' : 'bg-surface text-text'
-          ].join(' ')}
-          onClick={() => onSelectPlayer(player.id)}
-        >
-          {player.name}
-          {developerMode ? <span className="ml-2 text-xs opacity-70">{player.role}</span> : null}
-        </button>
+        <div key={player.id} className="grid grid-cols-[1fr_auto] gap-2 rounded-xl bg-surface p-2">
+          <button
+            className={[
+              'min-w-0 rounded-lg px-3 py-2 text-left font-semibold transition',
+              selectedPlayerId === player.id ? 'bg-accent text-white' : 'text-text hover:bg-white/5'
+            ].join(' ')}
+            onClick={() => onSelectPlayer(player.id)}
+          >
+            <span className="block truncate">{player.name}</span>
+            {developerMode ? <span className="block text-xs opacity-70">{roleLabels[player.role]}</span> : null}
+          </button>
+          {developerMode ? (
+            <select
+              value={player.role}
+              disabled={disabled}
+              onChange={(event) => onAssignRole(player.id, event.target.value as Role)}
+              className="rounded-lg border border-white/10 bg-background px-2 text-xs font-semibold text-text outline-none"
+            >
+              {(Object.keys(roleLabels) as Role[]).map((role) => (
+                <option key={role} value={role}>
+                  {roleLabels[role]}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
       ))}
     </div>
   )
@@ -318,6 +385,7 @@ function applyClientAction(snapshot: GameSnapshot, action: ClientAction): GameSn
 
   if (action.type === 'nightAction') return submitNightAction(snapshot, action.action)
   if (action.type === 'vote') return submitVote(snapshot, action.vote)
+  if (action.type === 'confirmationVote') return submitConfirmationVote(snapshot, action.vote)
 
   return snapshot
 }
@@ -330,8 +398,8 @@ function formatTimer(secondsLeft: number): string {
 
 function getPhaseBackground(phase: GamePhase): string {
   if (phase === 'Night') return 'linear-gradient(180deg, #050713 0%, #0B1024 100%)'
-  if (phase === 'Discussion') return 'linear-gradient(180deg, #101827 0%, #142019 100%)'
-  if (phase === 'Voting') return 'linear-gradient(180deg, #1C1020 0%, #111827 100%)'
+  if (phase === 'Discussion') return 'linear-gradient(180deg, #F5F5F5 0%, #E5E7EB 100%)'
+  if (phase === 'Voting' || phase === 'Confirmation') return 'linear-gradient(180deg, #111827 0%, #374151 100%)'
   if (phase === 'GameOver') return 'linear-gradient(180deg, #160B22 0%, #0B0F19 100%)'
   return 'linear-gradient(180deg, #0B0F19 0%, #111827 100%)'
 }
