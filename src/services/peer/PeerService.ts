@@ -10,18 +10,27 @@ export class PeerService {
   private connections: Map<string, DataConnection> = new Map()
   private _openPromise: Promise<string> | null = null
   private _openResolve: ((id: string) => void) | null = null
+  private _openReject: ((error: Error) => void) | null = null
   private _dataHandlers: Array<(peerId: string, data: any) => void> = []
+  private _errorHandlers: Array<(error: Error) => void> = []
 
   constructor(private id?: string) {}
 
   init() {
     this.peer = this.id ? new Peer(this.id) : new Peer()
-    this._openPromise = new Promise((resolve) => {
+    this._openPromise = new Promise((resolve, reject) => {
       this._openResolve = resolve
+      this._openReject = reject
     })
     this.peer.on('open', (id) => {
       console.log('Peer open', id)
       this._openResolve?.(id)
+    })
+    this.peer.on('error', (error) => {
+      console.error('Peer error', error)
+      const normalizedError = error instanceof Error ? error : new Error(String(error))
+      this._openReject?.(normalizedError)
+      this._errorHandlers.forEach((handler) => handler(normalizedError))
     })
     this.peer.on('connection', (conn) => {
       console.log('Incoming connection from', conn.peer)
@@ -44,6 +53,10 @@ export class PeerService {
       } catch (err) {
         console.error('data handler error', err)
       }
+    })
+    conn.on('error', (error) => {
+      const normalizedError = error instanceof Error ? error : new Error(String(error))
+      this._errorHandlers.forEach((handler) => handler(normalizedError))
     })
     conn.on('close', () => this.connections.delete(conn.peer))
   }
@@ -68,6 +81,14 @@ export class PeerService {
     }
   }
 
+  onError(cb: (error: Error) => void) {
+    this._errorHandlers.push(cb)
+    return () => {
+      const idx = this._errorHandlers.indexOf(cb)
+      if (idx >= 0) this._errorHandlers.splice(idx, 1)
+    }
+  }
+
   getId() {
     return this.peer?.id
   }
@@ -75,9 +96,13 @@ export class PeerService {
   async waitForOpen(): Promise<string> {
     if (this._openPromise) return this._openPromise
     if (this.peer && this.peer.id) return Promise.resolve(this.peer.id)
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this._openResolve = resolve
-      this._openPromise = new Promise((r) => (this._openResolve = r))
+      this._openReject = reject
+      this._openPromise = new Promise((r, j) => {
+        this._openResolve = r
+        this._openReject = j
+      })
     })
   }
 

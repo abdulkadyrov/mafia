@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { defaultRoomSettings } from '../game/defaults'
 import { useDeveloperMode } from '../hooks/useDeveloperMode'
 import { useLocalStorage } from '../hooks/useLocalStorage'
-import { generateRoomCode } from '../network/RoomService'
+import { generateRoomCode, normalizeRoomCode } from '../network/RoomService'
 import { Button } from '../shared/ui/Button'
 import { LogoMark } from '../widgets/LogoMark'
 import { RoomSettings } from '../types/game'
@@ -20,6 +20,7 @@ export const Lobby: React.FC<Props> = ({ onCreateRoom, onJoinRoom }) => {
   const [joinCode, setJoinCode] = React.useState('')
 
   const cleanName = playerName.trim()
+  const cleanJoinCode = normalizeRoomCode(joinCode)
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-between px-5 py-6">
@@ -55,11 +56,13 @@ export const Lobby: React.FC<Props> = ({ onCreateRoom, onJoinRoom }) => {
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <input
             value={joinCode}
-            onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-            placeholder="ABCD-92"
+            inputMode="numeric"
+            maxLength={6}
+            onChange={(event) => setJoinCode(normalizeRoomCode(event.target.value))}
+            placeholder="483921"
             className="h-14 min-w-0 rounded-xl border border-white/10 bg-surface px-4 font-mono text-lg font-semibold text-text outline-none transition focus:border-accent"
           />
-          <Button disabled={!cleanName || !joinCode.trim()} onClick={() => onJoinRoom(joinCode.trim(), cleanName)}>
+          <Button disabled={!cleanName || cleanJoinCode.length !== 6} onClick={() => onJoinRoom(cleanJoinCode, cleanName)}>
             Войти
           </Button>
         </div>

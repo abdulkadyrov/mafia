@@ -24,7 +24,7 @@ import { samplePlayerNames } from '../game/defaults'
 import { useCountdown } from '../hooks/useCountdown'
 import { ClientNetwork } from '../network/ClientNetwork'
 import { HostNetwork } from '../network/HostNetwork'
-import { generateQRCode } from '../network/RoomService'
+import { createRoomPeerId, generateQRCode } from '../network/RoomService'
 import { saveArchivedGame } from '../services/storage/GameArchiveService'
 import { createHashAppPath } from '../shared/routing/basePath'
 import { Button } from '../shared/ui/Button'
@@ -57,7 +57,8 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
     })
   })
   const [inviteQr, setInviteQr] = React.useState<string>()
-  const [clientConnected, setClientConnected] = React.useState(false)
+  const [networkStatus, setNetworkStatus] = React.useState<'idle' | 'hosting' | 'connecting' | 'connected' | 'failed'>('idle')
+  const [networkMessage, setNetworkMessage] = React.useState('')
   const [selectedPlayerId, setSelectedPlayerId] = React.useState<PlayerId>(localPlayerId)
   const hostRef = React.useRef<HostNetwork>()
   const clientRef = React.useRef<ClientNetwork>()
@@ -78,8 +79,13 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
 
     hostRef.current = host
     host.start().then(async (peerId) => {
+      setNetworkStatus('hosting')
+      setNetworkMessage(`Комната готова: ${peerId}`)
       const inviteUrl = `${location.origin}${createHashAppPath(`/room/${roomCode}`)}?peer=${encodeURIComponent(peerId)}`
       setInviteQr(await generateQRCode(inviteUrl))
+    }).catch((error) => {
+      setNetworkStatus('failed')
+      setNetworkMessage(error instanceof Error ? error.message : 'Не удалось создать комнату')
     })
 
     return () => {
@@ -91,22 +97,35 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
   React.useEffect(() => {
     if (!joinPeerId || !displayName.trim()) return undefined
 
-    const client = new ClientNetwork((remoteSnapshot) => {
-      setSnapshot(remoteSnapshot)
-    })
+    setNetworkStatus('connecting')
+    setNetworkMessage('Подключение к комнате...')
+
+    const client = new ClientNetwork(
+      (remoteSnapshot) => {
+        setSnapshot(remoteSnapshot)
+      },
+      (message) => {
+        setNetworkStatus('failed')
+        setNetworkMessage(message)
+      }
+    )
 
     clientRef.current = client
     client
-      .join(joinPeerId)
+      .join(createRoomPeerId(joinPeerId))
       .then(() => {
-        setClientConnected(true)
+        setNetworkStatus('connected')
+        setNetworkMessage('Подключено')
         client.sendAction({
           type: 'joinRoom',
           playerId: localPlayerId,
           playerName: displayName.trim()
         })
       })
-      .catch(() => setClientConnected(false))
+      .catch((error) => {
+        setNetworkStatus('failed')
+        setNetworkMessage(error instanceof Error ? error.message : 'Не удалось подключиться к комнате')
+      })
 
     return () => {
       client.destroy()
@@ -179,7 +198,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
         <div>
           <p className="font-mono text-xl font-black">{roomCode}</p>
-          <p className="text-xs font-semibold text-muted">{isClient ? (clientConnected ? 'Игрок' : 'Подключение') : 'Администратор'}</p>
+          <p className="text-xs font-semibold text-muted">{isClient ? getNetworkLabel(networkStatus) : 'Администратор'}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -206,6 +225,12 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode, settings, developerMo
         {snapshot.phase === 'Lobby' ? (
           <div className="grid min-h-0 gap-4 overflow-auto lg:grid-cols-[1fr_1.1fr]">
             <div className="grid content-start gap-3">
+              <NetworkNotice
+                isClient={isClient}
+                roomCode={roomCode}
+                networkStatus={networkStatus}
+                networkMessage={networkMessage}
+              />
               <div className="grid grid-cols-2 gap-2">
                 <Button disabled={isClient} onClick={() => updateHostSnapshot((current) => seedDemoPlayers(current, samplePlayerNames))}>
                   Игроки
@@ -370,6 +395,43 @@ function PhaseButton({
       {children}
     </Button>
   )
+}
+
+function NetworkNotice({
+  isClient,
+  roomCode,
+  networkStatus,
+  networkMessage
+}: {
+  isClient: boolean
+  roomCode: string
+  networkStatus: 'idle' | 'hosting' | 'connecting' | 'connected' | 'failed'
+  networkMessage: string
+}) {
+  if (!isClient && networkStatus !== 'failed') {
+    return (
+      <div className="rounded-xl bg-surface/80 px-4 py-3">
+        <p className="text-sm font-semibold text-text">Код комнаты</p>
+        <p className="mt-1 font-mono text-3xl font-black tracking-[0.16em] text-text">{roomCode}</p>
+        <p className="mt-2 text-xs font-medium text-muted">Телефон должен быть в той же Wi-Fi сети и ввести этот код.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className={['rounded-xl px-4 py-3', networkStatus === 'failed' ? 'bg-danger/20' : 'bg-surface/80'].join(' ')}>
+      <p className="text-sm font-semibold text-text">{getNetworkLabel(networkStatus)}</p>
+      <p className="mt-1 text-xs font-medium text-muted">{networkMessage || 'Ожидание соединения'}</p>
+    </div>
+  )
+}
+
+function getNetworkLabel(status: 'idle' | 'hosting' | 'connecting' | 'connected' | 'failed'): string {
+  if (status === 'hosting') return 'Комната создана'
+  if (status === 'connecting') return 'Подключение'
+  if (status === 'connected') return 'Подключено'
+  if (status === 'failed') return 'Ошибка сети'
+  return 'Ожидание'
 }
 
 function applyClientAction(snapshot: GameSnapshot, action: ClientAction): GameSnapshot {

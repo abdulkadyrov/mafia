@@ -1,5 +1,6 @@
 import React from 'react'
 import { defaultRoomSettings } from '../game/defaults'
+import { normalizeRoomCode } from '../network/RoomService'
 import { Lobby } from '../pages/Lobby'
 import { Room } from '../pages/Room'
 import { createAppPath, createHashAppPath, getPathWithoutBase } from '../shared/routing/basePath'
@@ -59,14 +60,15 @@ export const App: React.FC = () => {
             })
           }}
           onJoinRoom={(roomCode, playerName) => {
-            history.replaceState(null, '', createHashAppPath(`/room/${roomCode}`))
+            const normalizedRoomCode = normalizeRoomCode(roomCode)
+            history.replaceState(null, '', createHashAppPath(`/room/${normalizedRoomCode}`))
             setRoute({
               name: 'room',
-              roomCode,
+              roomCode: normalizedRoomCode,
               settings: defaultRoomSettings,
               developerMode: false,
               playerName,
-              joinPeerId: roomCode
+              joinPeerId: normalizedRoomCode
             })
           }}
         />
