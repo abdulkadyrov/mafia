@@ -1,43 +1,46 @@
-import { NumberField } from '../../shared/ui/NumberField'
-import { Panel } from '../../shared/ui/Panel'
-import { Toggle } from '../../shared/ui/Toggle'
-import { RoomSettings } from '../../types/game'
+import { NumberField } from "../../shared/ui/NumberField";
+import { Panel } from "../../shared/ui/Panel";
+import { Toggle } from "../../shared/ui/Toggle";
+import { RoomSettings } from "../../types/game";
 
 type RoomSettingsFormProps = {
-  settings: RoomSettings
-  onChange: (settings: RoomSettings) => void
-}
+  settings: RoomSettings;
+  onChange: (settings: RoomSettings) => void;
+};
 
-export function RoomSettingsForm({ settings, onChange }: RoomSettingsFormProps) {
+export function RoomSettingsForm({
+  settings,
+  onChange,
+}: RoomSettingsFormProps) {
   function updateSettings(patch: Partial<RoomSettings>) {
     onChange({
       ...settings,
-      ...patch
-    })
+      ...patch,
+    });
   }
 
-  function updateRoles(patch: Partial<RoomSettings['roles']>) {
+  function updateRoles(patch: Partial<RoomSettings["roles"]>) {
     updateSettings({
       roles: {
         ...settings.roles,
-        ...patch
-      }
-    })
+        ...patch,
+      },
+    });
   }
 
-  function updateTimers(patch: Partial<RoomSettings['timers']>) {
+  function updateTimers(patch: Partial<RoomSettings["timers"]>) {
     updateSettings({
       timers: {
         ...settings.timers,
-        ...patch
-      }
-    })
+        ...patch,
+      },
+    });
   }
 
   return (
     <div className="space-y-4">
       <Panel>
-        <h2 className="mb-4 text-lg font-semibold text-text">Игроки</h2>
+        <h2 className="mb-4 text-lg font-black text-zinc-950">Игроки</h2>
         <NumberField
           label="Лимит комнаты"
           min={4}
@@ -48,9 +51,15 @@ export function RoomSettingsForm({ settings, onChange }: RoomSettingsFormProps) 
       </Panel>
 
       <Panel>
-        <h2 className="mb-4 text-lg font-semibold text-text">Роли</h2>
+        <h2 className="mb-4 text-lg font-black text-zinc-950">Роли</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <NumberField label="Мафия" min={1} max={6} value={settings.roles.mafia} onChange={(mafia) => updateRoles({ mafia })} />
+          <NumberField
+            label="Мафия"
+            min={1}
+            max={6}
+            value={settings.roles.mafia}
+            onChange={(mafia) => updateRoles({ mafia })}
+          />
           <NumberField
             label="Доктор"
             min={0}
@@ -76,7 +85,7 @@ export function RoomSettingsForm({ settings, onChange }: RoomSettingsFormProps) 
       </Panel>
 
       <Panel>
-        <h2 className="mb-4 text-lg font-semibold text-text">Таймеры</h2>
+        <h2 className="mb-4 text-lg font-black text-zinc-950">Таймеры</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           <NumberField
             label="Ночь"
@@ -92,7 +101,9 @@ export function RoomSettingsForm({ settings, onChange }: RoomSettingsFormProps) 
             min={30}
             max={600}
             value={settings.timers.discussionSeconds}
-            onChange={(discussionSeconds) => updateTimers({ discussionSeconds })}
+            onChange={(discussionSeconds) =>
+              updateTimers({ discussionSeconds })
+            }
           />
           <NumberField
             label="Голосование"
@@ -106,27 +117,39 @@ export function RoomSettingsForm({ settings, onChange }: RoomSettingsFormProps) 
       </Panel>
 
       <Panel>
-        <h2 className="mb-4 text-lg font-semibold text-text">Правила</h2>
+        <h2 className="mb-4 text-lg font-black text-zinc-950">Правила</h2>
         <div className="grid gap-3">
           <Toggle
             label="Роли назначает администратор"
-            checked={settings.roleAssignmentMode === 'manual'}
-            onChange={(manual) => updateSettings({ roleAssignmentMode: manual ? 'manual' : 'random' })}
+            checked={settings.roleAssignmentMode === "manual"}
+            onChange={(manual) =>
+              updateSettings({
+                roleAssignmentMode: manual ? "manual" : "random",
+              })
+            }
           />
           <Toggle
             label="Мафии нужно единогласие"
-            checked={settings.mafiaDecisionMode === 'unanimity'}
-            onChange={(unanimity) => updateSettings({ mafiaDecisionMode: unanimity ? 'unanimity' : 'majority' })}
+            checked={settings.mafiaDecisionMode === "unanimity"}
+            onChange={(unanimity) =>
+              updateSettings({
+                mafiaDecisionMode: unanimity ? "unanimity" : "majority",
+              })
+            }
           />
           <Toggle
             label="Показывать роли после смерти"
             checked={settings.revealRolesAfterDeath}
-            onChange={(revealRolesAfterDeath) => updateSettings({ revealRolesAfterDeath })}
+            onChange={(revealRolesAfterDeath) =>
+              updateSettings({ revealRolesAfterDeath })
+            }
           />
           <Toggle
             label="Показывать историю действий"
             checked={settings.showActionHistory}
-            onChange={(showActionHistory) => updateSettings({ showActionHistory })}
+            onChange={(showActionHistory) =>
+              updateSettings({ showActionHistory })
+            }
           />
           <Toggle
             label="Режим ставок"
@@ -146,5 +169,5 @@ export function RoomSettingsForm({ settings, onChange }: RoomSettingsFormProps) 
         </div>
       </Panel>
     </div>
-  )
+  );
 }
