@@ -1,49 +1,53 @@
-Mafia — LAN PWA
+Mafia LAN PWA
 
-This repository is a starter skeleton for the LAN/PWA Mafia game.
+React + Vite + TypeScript проект игры "Мафия" с realtime-лобби на Supabase.
 
-Run development server:
+Запуск локально:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Run LAN game server for phones on the same Wi-Fi or hotspot:
+## Подключение Supabase
 
-```bash
-npm run lan
+1. Создать проект Supabase.
+2. Открыть `Project Settings`.
+3. Найти `Project URL`.
+4. Найти `anon public key`.
+5. Создать `.env.local`.
+6. Вставить ключи.
+7. Открыть `SQL Editor`.
+8. Запустить `supabase/schema.sql`.
+9. Запустить проект командой `npm run dev`.
+
+Пример `.env.local`:
+
+```env
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-Open the printed `Network` URL on every phone, for example:
+Шаблон переменных уже лежит в `.env.example`.
 
-```text
-http://192.168.1.20:4173/mafia/
-```
+## Что уже подключено
 
-If port `4173` is already busy:
+- создание комнаты с 6-значным кодом;
+- вход в комнату по коду;
+- сохранение `room`, `players`, `votes`, `night_actions`, `game_events` в Supabase;
+- realtime-подписки на комнату и игроков;
+- восстановление `roomId`, `playerId`, `roomCode` через `localStorage`.
 
-```bash
-PORT=4174 npm run lan
-```
+## Полезные файлы
 
-LAN checklist:
+- `src/services/supabaseClient.ts`
+- `src/services/roomService.ts`
+- `src/services/playerService.ts`
+- `src/services/gameService.ts`
+- `src/services/realtimeService.ts`
+- `src/types/database.ts`
+- `supabase/schema.sql`
 
-- Disable VPN, iCloud Private Relay, and traffic-filtering/ad-blocking apps on the host and phones.
-- Keep all devices on the same Wi-Fi or on the same phone hotspot.
-- On macOS, allow incoming connections for Node/Terminal in Firewall settings.
-- Test the server from the phone by opening `http://HOST_IP:PORT/api/health`. It should return JSON with `"ok": true`.
-- An Android phone can be the server through Termux: install Node.js, clone/copy the project, run `npm install`, then `npm run lan`, and open the printed `Network` URL on other devices.
+## Примечание по безопасности
 
-This project uses Vite, React, TypeScript and Tailwind.
-
-Next steps:
-
-- implement networking (PeerJS wrapper provided in `src/services/peer/PeerService.ts`)
-- implement game engine in `src/game`
-- wire up PWA service worker and icons
-
-Deployment to GitHub Pages
-
-- This repository includes a GitHub Action that builds and publishes `dist/` to the `gh-pages` branch on each push to `main`.
-- If the site shows a white screen after deployment, try clearing the Service Worker in browser DevTools (Application → Service Workers → Unregister) and reload.
+Для MVP в `supabase/schema.sql` включён RLS с простыми политиками для `anon` на чтение и запись игровых таблиц. Перед production-деплоем эти политики нужно ужесточить.

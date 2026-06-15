@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 
 export function usePWA() {
-  const [installed, setInstalled] = useState(false)
+  const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
     function handler() {
-      setInstalled(true)
+      setInstalled(true);
     }
-    window.addEventListener('appinstalled', handler)
-    return () => window.removeEventListener('appinstalled', handler)
-  }, [])
+    window.addEventListener("appinstalled", handler);
+    return () => window.removeEventListener("appinstalled", handler);
+  }, []);
 
-  return { installed }
+  return { installed };
 }

@@ -1,23 +1,23 @@
-import React from 'react'
+import React from "react";
 
 export function useLocalStorage<T>(key: string, fallbackValue: T) {
   const [value, setValue] = React.useState<T>(() => {
-    const storedValue = window.localStorage.getItem(key)
+    const storedValue = window.localStorage.getItem(key);
 
     if (!storedValue) {
-      return fallbackValue
+      return fallbackValue;
     }
 
     try {
-      return JSON.parse(storedValue) as T
+      return JSON.parse(storedValue) as T;
     } catch {
-      return fallbackValue
+      return fallbackValue;
     }
-  })
+  });
 
   React.useEffect(() => {
-    window.localStorage.setItem(key, JSON.stringify(value))
-  }, [key, value])
+    window.localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
 
-  return [value, setValue] as const
+  return [value, setValue] as const;
 }

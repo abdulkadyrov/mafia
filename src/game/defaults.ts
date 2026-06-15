@@ -1,4 +1,4 @@
-import { RoomSettings } from '../types/game'
+import { RoomSettings } from "../types/game";
 
 export const defaultRoomSettings: RoomSettings = {
   playerLimit: 8,
@@ -6,21 +6,30 @@ export const defaultRoomSettings: RoomSettings = {
     mafia: 2,
     doctors: 1,
     detectives: 1,
-    civilians: 4
+    civilians: 4,
   },
   timers: {
     nightSeconds: 45,
     discussionSeconds: 120,
-    votingSeconds: 45
+    votingSeconds: 45,
   },
-  mafiaDecisionMode: 'majority',
-  roleAssignmentMode: 'random',
+  mafiaDecisionMode: "majority",
+  roleAssignmentMode: "random",
   revealRolesAfterDeath: true,
   showActionHistory: true,
   bettingMode: false,
   privateRoom: false,
   autoStart: false,
-  doctorSelfHealsLimit: 1
-}
+  doctorSelfHealsLimit: 1,
+};
 
-export const samplePlayerNames = ['Тимур', 'Леха', 'Адам', 'Мира', 'Ника', 'Саша', 'Илья', 'Рита']
+export const samplePlayerNames = [
+  "Тимур",
+  "Леха",
+  "Адам",
+  "Мира",
+  "Ника",
+  "Саша",
+  "Илья",
+  "Рита",
+];

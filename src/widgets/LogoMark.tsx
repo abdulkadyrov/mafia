@@ -1,6 +1,6 @@
 type LogoMarkProps = {
-  onPress?: () => void
-}
+  onPress?: () => void;
+};
 
 export function LogoMark({ onPress }: LogoMarkProps) {
   return (
@@ -14,9 +14,13 @@ export function LogoMark({ onPress }: LogoMarkProps) {
         M
       </span>
       <span>
-        <span className="block text-2xl font-black tracking-normal text-text">Mafia</span>
-        <span className="block text-xs font-medium uppercase tracking-[0.2em] text-muted">LAN PWA</span>
+        <span className="block text-2xl font-black tracking-normal text-text">
+          Mafia
+        </span>
+        <span className="block text-xs font-medium uppercase tracking-[0.2em] text-muted">
+          LAN PWA
+        </span>
       </span>
     </button>
-  )
+  );
 }

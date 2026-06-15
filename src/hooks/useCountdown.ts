@@ -1,26 +1,28 @@
-import React from 'react'
+import React from "react";
 
 export function useCountdown(endsAt?: number): number {
-  const [secondsLeft, setSecondsLeft] = React.useState(() => getSecondsLeft(endsAt))
+  const [secondsLeft, setSecondsLeft] = React.useState(() =>
+    getSecondsLeft(endsAt)
+  );
 
   React.useEffect(() => {
-    setSecondsLeft(getSecondsLeft(endsAt))
+    setSecondsLeft(getSecondsLeft(endsAt));
 
     if (!endsAt) {
-      return undefined
+      return undefined;
     }
 
     const interval = window.setInterval(() => {
-      setSecondsLeft(getSecondsLeft(endsAt))
-    }, 1000)
+      setSecondsLeft(getSecondsLeft(endsAt));
+    }, 1000);
 
-    return () => window.clearInterval(interval)
-  }, [endsAt])
+    return () => window.clearInterval(interval);
+  }, [endsAt]);
 
-  return secondsLeft
+  return secondsLeft;
 }
 
 function getSecondsLeft(endsAt?: number): number {
-  if (!endsAt) return 0
-  return Math.max(0, Math.ceil((endsAt - Date.now()) / 1000))
+  if (!endsAt) return 0;
+  return Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
 }

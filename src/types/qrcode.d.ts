@@ -1,8 +1,11 @@
-declare module 'qrcode' {
+declare module "qrcode" {
   type QRCodeToDataURLOptions = {
-    margin?: number
-    width?: number
-  }
+    margin?: number;
+    width?: number;
+  };
 
-  export function toDataURL(data: string, options?: QRCodeToDataURLOptions): Promise<string>
+  export function toDataURL(
+    data: string,
+    options?: QRCodeToDataURLOptions
+  ): Promise<string>;
 }

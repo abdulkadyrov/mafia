@@ -1,0 +1,61 @@
+import { supabase } from "./supabaseClient";
+import type { Player, PlayerRole } from "../types/database";
+
+export async function getPlayers(roomId: string): Promise<Player[]> {
+  const { data, error } = await supabase
+    .from("players")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("joined_at", { ascending: true });
+
+  if (error) {
+    throw new Error("Не удалось получить игроков");
+  }
+
+  return data satisfies Player[];
+}
+
+export async function updatePlayerRole(
+  playerId: string,
+  role: PlayerRole
+): Promise<void> {
+  const { error } = await supabase
+    .from("players")
+    .update({
+      role,
+    })
+    .eq("id", playerId);
+
+  if (error) {
+    throw new Error("Не удалось обновить роль игрока");
+  }
+}
+
+export async function killPlayer(playerId: string): Promise<void> {
+  const { error } = await supabase
+    .from("players")
+    .update({
+      is_alive: false,
+    })
+    .eq("id", playerId);
+
+  if (error) {
+    throw new Error("Не удалось обновить статус игрока");
+  }
+}
+
+export async function updatePlayerScore(
+  playerId: string,
+  score: number
+): Promise<void> {
+  const { error } = await supabase
+    .from("players")
+    .update({
+      score,
+    })
+    .eq("id", playerId);
+
+  if (error) {
+    throw new Error("Не удалось обновить счёт игрока");
+  }
+}
