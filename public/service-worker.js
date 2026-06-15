@@ -1,4 +1,4 @@
-const CACHE_NAME = "mafia-shell-v5";
+const CACHE_NAME = "mafia-shell-v6";
 const APP_SHELL = [".", "index.html", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -27,8 +27,9 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const url = new URL(event.request.url);
+  const isSameOrigin = url.origin === self.location.origin;
 
-  if (url.pathname.startsWith("/api/")) {
+  if (!isSameOrigin || url.pathname.startsWith("/api/")) {
     return;
   }
 
