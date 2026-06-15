@@ -2,7 +2,9 @@ import React from "react";
 import { motion } from "framer-motion";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { RoomSettingsForm } from "../features/room-settings/RoomSettingsForm";
+import { addGameEvent } from "../services/gameService";
 import { getPlayers } from "../services/playerService";
+import { updatePlayerRole } from "../services/playerService";
 import {
   getRoomByCode,
   normalizeRoomCode,
@@ -15,7 +17,7 @@ import {
   unsubscribe,
 } from "../services/realtimeService";
 import { Button } from "../shared/ui/Button";
-import type { Player, Room as RoomRecord } from "../types/database";
+import type { Player, PlayerRole, Room as RoomRecord } from "../types/database";
 import type { RoomSettings } from "../types/game";
 
 type Props = {
@@ -129,11 +131,31 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       return;
     }
 
+    if (players.length < 4) {
+      setErrorMessage("Для старта игры нужно минимум 4 игрока");
+      return;
+    }
+
     setIsStartingGame(true);
     setErrorMessage("");
 
     try {
-      await updateRoomPhase(room.id, "night");
+      const assignedRoles = buildRoleAssignments(players, room.settings);
+
+      await Promise.all(
+        assignedRoles.map((player) => updatePlayerRole(player.id, player.role))
+      );
+
+      await addGameEvent(room.id, {
+        round_number: 1,
+        phase: "night",
+        type: "game_started",
+        message: "Игра началась. Роли назначены, наступает ночь.",
+        visibility: "public",
+        target_player_id: null,
+      });
+
+      await updateRoomPhase(room.id, "night", { roundNumber: 1 });
     } catch (error) {
       setErrorMessage(
         getErrorMessage(error, "Не удалось обновить фазу комнаты")
@@ -304,34 +326,99 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Настройки
-                </p>
-                <h2 className="mt-2 text-2xl font-black">Параметры комнаты</h2>
+          {room.phase === "lobby" ? (
+            <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Настройки
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black">
+                    Параметры комнаты
+                  </h2>
+                </div>
+                {isHost ? (
+                  <div className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-bold text-zinc-600">
+                    {isSavingSettings ? "Сохранение..." : "Хост может менять"}
+                  </div>
+                ) : null}
               </div>
+
+              <div
+                className={
+                  isHost ? "mt-4" : "mt-4 pointer-events-none opacity-75"
+                }
+              >
+                <RoomSettingsForm
+                  settings={room.settings as RoomSettings}
+                  onChange={(nextSettings) => {
+                    void handleSettingsChange(nextSettings);
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+                Игра
+              </p>
+              <h2 className="mt-2 text-2xl font-black">
+                Раунд {room.round_number || 1} · {formatPhase(room.phase)}
+              </h2>
+
+              {selfPlayer ? (
+                <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Ваша роль
+                  </p>
+                  <p className="mt-2 text-3xl font-black">
+                    {formatRole(selfPlayer.role)}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-zinc-500">
+                    {getRoleDescription(selfPlayer.role)}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <StatusCard
+                  label="Живых игроков"
+                  value={String(
+                    players.filter((player) => player.is_alive).length
+                  )}
+                />
+                <StatusCard
+                  label="Всего игроков"
+                  value={String(players.length)}
+                />
+              </div>
+
               {isHost ? (
-                <div className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-bold text-zinc-600">
-                  {isSavingSettings ? "Сохранение..." : "Хост может менять"}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => {
+                      void updateRoomPhase(room.id, getNextPhase(room.phase), {
+                        roundNumber:
+                          room.phase === "voting"
+                            ? room.round_number + 1
+                            : room.round_number,
+                      });
+                    }}
+                  >
+                    Следующая фаза
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      void updateRoomPhase(room.id, "game_over");
+                    }}
+                  >
+                    Завершить игру
+                  </Button>
                 </div>
               ) : null}
             </div>
-
-            <div
-              className={
-                isHost ? "mt-4" : "mt-4 pointer-events-none opacity-75"
-              }
-            >
-              <RoomSettingsForm
-                settings={room.settings as RoomSettings}
-                onChange={(nextSettings) => {
-                  void handleSettingsChange(nextSettings);
-                }}
-              />
-            </div>
-          </div>
+          )}
         </section>
       </div>
     </motion.main>
@@ -391,6 +478,116 @@ function formatPhase(phase: RoomRecord["phase"]): string {
     default:
       return phase;
   }
+}
+
+function buildRoleAssignments(
+  players: Player[],
+  settings: RoomRecord["settings"]
+): Array<{ id: string; role: PlayerRole }> {
+  const deck = buildRoleDeck(players.length, settings);
+  const shuffledRoles = shuffle(deck);
+  const shuffledPlayers = shuffle(players);
+
+  return shuffledPlayers.map((player, index) => ({
+    id: player.id,
+    role: shuffledRoles[index] ?? "civilian",
+  }));
+}
+
+function buildRoleDeck(
+  playerCount: number,
+  settings: RoomRecord["settings"]
+): PlayerRole[] {
+  const deck: PlayerRole[] = [];
+
+  for (let index = 0; index < settings.roles.mafia; index += 1) {
+    deck.push("mafia");
+  }
+
+  for (let index = 0; index < settings.roles.doctors; index += 1) {
+    deck.push("doctor");
+  }
+
+  for (let index = 0; index < settings.roles.detectives; index += 1) {
+    deck.push("inspector");
+  }
+
+  while (deck.length < playerCount) {
+    deck.push("civilian");
+  }
+
+  return deck.slice(0, playerCount);
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const nextItems = [...items];
+
+  for (let index = nextItems.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    const currentValue = nextItems[index];
+    nextItems[index] = nextItems[swapIndex];
+    nextItems[swapIndex] = currentValue;
+  }
+
+  return nextItems;
+}
+
+function formatRole(role: PlayerRole): string {
+  switch (role) {
+    case "mafia":
+      return "Мафия";
+    case "doctor":
+      return "Доктор";
+    case "inspector":
+      return "Инспектор";
+    case "civilian":
+      return "Мирный";
+    default:
+      return "Не назначена";
+  }
+}
+
+function getRoleDescription(role: PlayerRole): string {
+  switch (role) {
+    case "mafia":
+      return "Ночью выберите цель вместе с другими мафиози.";
+    case "doctor":
+      return "Ночью спасайте одного игрока от выбывания.";
+    case "inspector":
+      return "Ночью проверяйте игроков и ищите мафию.";
+    case "civilian":
+      return "Днём обсуждайте и голосуйте против подозреваемых.";
+    default:
+      return "Роль будет выдана при старте игры.";
+  }
+}
+
+function getNextPhase(currentPhase: RoomRecord["phase"]): RoomRecord["phase"] {
+  switch (currentPhase) {
+    case "night":
+      return "day";
+    case "day":
+      return "voting";
+    case "voting":
+      return "night";
+    case "voting_confirmation":
+      return "night";
+    case "game_over":
+      return "game_over";
+    default:
+      return "night";
+  }
+}
+
+function StatusCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-black">{value}</p>
+    </div>
+  );
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {

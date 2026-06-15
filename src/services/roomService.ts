@@ -135,7 +135,10 @@ export async function getRoomByCode(code: string): Promise<Room | null> {
 
 export async function updateRoomPhase(
   roomId: string,
-  phase: GamePhase
+  phase: GamePhase,
+  options?: {
+    roundNumber?: number;
+  }
 ): Promise<void> {
   const supabase = getSupabaseClient();
   const status =
@@ -145,6 +148,9 @@ export async function updateRoomPhase(
     .update({
       phase,
       status,
+      ...(typeof options?.roundNumber === "number"
+        ? { round_number: options.roundNumber }
+        : {}),
     })
     .eq("id", roomId);
 
