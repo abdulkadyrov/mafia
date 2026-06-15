@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { RoomSettingsForm } from "../features/room-settings/RoomSettingsForm";
 import { getPlayers } from "../services/playerService";
 import {
@@ -42,33 +43,40 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     []
   );
 
-  const loadRoomData = React.useCallback(async () => {
-    setIsLoading(true);
-    setErrorMessage("");
-
-    try {
-      const nextRoom = await getRoomByCode(normalizedRoomCode);
-
-      if (!nextRoom) {
-        setRoom(null);
-        setPlayers([]);
-        setErrorMessage("Комната не найдена");
-        return;
+  const loadRoomData = React.useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!options?.silent) {
+        setIsLoading(true);
       }
+      setErrorMessage("");
 
-      const nextPlayers = await getPlayers(nextRoom.id);
-      setRoom(nextRoom);
-      setPlayers(nextPlayers);
-      window.localStorage.setItem(ROOM_ID_STORAGE_KEY, nextRoom.id);
-      window.localStorage.setItem(ROOM_CODE_STORAGE_KEY, nextRoom.code);
-    } catch (error) {
-      setErrorMessage(
-        getErrorMessage(error, "Не удалось подключиться к Supabase")
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [normalizedRoomCode]);
+      try {
+        const nextRoom = await getRoomByCode(normalizedRoomCode);
+
+        if (!nextRoom) {
+          setRoom(null);
+          setPlayers([]);
+          setErrorMessage("Комната не найдена");
+          return;
+        }
+
+        const nextPlayers = await getPlayers(nextRoom.id);
+        setRoom(nextRoom);
+        setPlayers(nextPlayers);
+        window.localStorage.setItem(ROOM_ID_STORAGE_KEY, nextRoom.id);
+        window.localStorage.setItem(ROOM_CODE_STORAGE_KEY, nextRoom.code);
+      } catch (error) {
+        setErrorMessage(
+          getErrorMessage(error, "Не удалось подключиться к Supabase")
+        );
+      } finally {
+        if (!options?.silent) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [normalizedRoomCode]
+  );
 
   React.useEffect(() => {
     void loadRoomData();
@@ -79,11 +87,16 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       return undefined;
     }
 
-    const roomChannel = subscribeToRoom(room.id, () => {
-      void loadRoomData();
+    const roomChannel = subscribeToRoom(room.id, (payload) => {
+      if (payload.new) {
+        setRoom(payload.new as RoomRecord);
+      }
+
+      void loadRoomData({ silent: true });
     });
-    const playersChannel = subscribeToPlayers(room.id, () => {
-      void loadRoomData();
+    const playersChannel = subscribeToPlayers(room.id, (payload) => {
+      applyPlayersRealtimePayload(payload);
+      void loadRoomData({ silent: true });
     });
 
     return () => {
@@ -91,6 +104,20 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       unsubscribe(playersChannel);
     };
   }, [loadRoomData, room?.id]);
+
+  React.useEffect(() => {
+    if (!room?.id || room.phase !== "lobby") {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void loadRoomData({ silent: true });
+    }, 2500);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [loadRoomData, room?.id, room?.phase]);
 
   const selfPlayer =
     players.find((player) => player.id === localPlayerId) ?? null;
@@ -309,6 +336,42 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       </div>
     </motion.main>
   );
+
+  function applyPlayersRealtimePayload(
+    payload: RealtimePostgresChangesPayload<Player>
+  ) {
+    if (payload.eventType === "INSERT" && payload.new) {
+      setPlayers((currentPlayers) => {
+        const nextPlayer = payload.new as Player;
+
+        if (currentPlayers.some((player) => player.id === nextPlayer.id)) {
+          return currentPlayers;
+        }
+
+        return [...currentPlayers, nextPlayer].sort(
+          (left, right) =>
+            new Date(left.joined_at).getTime() -
+            new Date(right.joined_at).getTime()
+        );
+      });
+      return;
+    }
+
+    if (payload.eventType === "UPDATE" && payload.new) {
+      setPlayers((currentPlayers) =>
+        currentPlayers.map((player) =>
+          player.id === payload.new.id ? (payload.new as Player) : player
+        )
+      );
+      return;
+    }
+
+    if (payload.eventType === "DELETE" && payload.old?.id) {
+      setPlayers((currentPlayers) =>
+        currentPlayers.filter((player) => player.id !== payload.old.id)
+      );
+    }
+  }
 };
 
 function formatPhase(phase: RoomRecord["phase"]): string {
