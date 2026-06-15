@@ -47,6 +47,20 @@ export async function killPlayer(playerId: string): Promise<void> {
   }
 }
 
+export async function revivePlayer(playerId: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("players")
+    .update({
+      is_alive: true,
+    })
+    .eq("id", playerId);
+
+  if (error) {
+    throw new Error("Не удалось обновить статус игрока");
+  }
+}
+
 export async function updatePlayerScore(
   playerId: string,
   score: number
