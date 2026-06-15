@@ -1,13 +1,15 @@
 import React from "react";
 import { motion } from "framer-motion";
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { RoomSettingsForm } from "../features/room-settings/RoomSettingsForm";
 import { useCountdown } from "../hooks/useCountdown";
 import {
   addGameEvent,
   addNightAction,
+  addVote,
   getDoctorSelfHealCount,
+  getGameEvents,
   getNightActions,
+  getVotes,
 } from "../services/gameService";
 import {
   getPlayers,
@@ -21,17 +23,21 @@ import {
   updateRoomSettings,
 } from "../services/roomService";
 import {
+  subscribeToEvents,
   subscribeToNightActions,
   subscribeToPlayers,
   subscribeToRoom,
+  subscribeToVotes,
   unsubscribe,
 } from "../services/realtimeService";
 import { Button } from "../shared/ui/Button";
 import type {
+  GameEvent,
   NightAction,
   Player,
   PlayerRole,
   Room as RoomRecord,
+  Vote,
 } from "../types/database";
 import type { RoomSettings } from "../types/game";
 
@@ -48,6 +54,8 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   const [room, setRoom] = React.useState<RoomRecord | null>(null);
   const [players, setPlayers] = React.useState<Player[]>([]);
   const [nightActions, setNightActions] = React.useState<NightAction[]>([]);
+  const [gameEvents, setGameEvents] = React.useState<GameEvent[]>([]);
+  const [votes, setVotes] = React.useState<Vote[]>([]);
   const [errorMessage, setErrorMessage] = React.useState("");
   const [actionMessage, setActionMessage] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(true);
@@ -57,6 +65,9 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   const [selectedPlayerId, setSelectedPlayerId] = React.useState<string | null>(
     null
   );
+  const [pendingVoteTargetId, setPendingVoteTargetId] = React.useState<
+    string | null
+  >(null);
   const [isPlayersExpanded, setIsPlayersExpanded] = React.useState(true);
   const normalizedRoomCode = React.useMemo(
     () => normalizeRoomCode(roomCode),
@@ -80,20 +91,33 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
           setRoom(null);
           setPlayers([]);
           setNightActions([]);
+          setGameEvents([]);
+          setVotes([]);
           setErrorMessage("Комната не найдена");
           return;
         }
 
-        const [nextPlayers, nextNightActions] = await Promise.all([
-          getPlayers(nextRoom.id),
-          nextRoom.phase === "lobby"
-            ? Promise.resolve([])
-            : getNightActions(nextRoom.id, nextRoom.round_number || 1),
-        ]);
+        const voteType =
+          nextRoom.phase === "voting_confirmation" ? "runoff" : "main";
+
+        const [nextPlayers, nextNightActions, nextEvents, nextVotes] =
+          await Promise.all([
+            getPlayers(nextRoom.id),
+            nextRoom.phase === "lobby"
+              ? Promise.resolve([])
+              : getNightActions(nextRoom.id, nextRoom.round_number || 1),
+            getGameEvents(nextRoom.id),
+            nextRoom.phase === "voting" ||
+            nextRoom.phase === "voting_confirmation"
+              ? getVotes(nextRoom.id, nextRoom.round_number || 1, voteType)
+              : Promise.resolve([]),
+          ]);
 
         setRoom(nextRoom);
         setPlayers(nextPlayers);
         setNightActions(nextNightActions);
+        setGameEvents(nextEvents);
+        setVotes(nextVotes);
         setErrorMessage("");
         window.localStorage.setItem(ROOM_ID_STORAGE_KEY, nextRoom.id);
         window.localStorage.setItem(ROOM_CODE_STORAGE_KEY, nextRoom.code);
@@ -123,15 +147,18 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       if (payload.new) {
         setRoom(payload.new as RoomRecord);
       }
-
       void loadRoomData({ silent: true });
     });
-    const playersChannel = subscribeToPlayers(room.id, (payload) => {
-      applyPlayersRealtimePayload(payload);
+    const playersChannel = subscribeToPlayers(room.id, () => {
       void loadRoomData({ silent: true });
     });
-    const nightActionsChannel = subscribeToNightActions(room.id, (payload) => {
-      applyNightActionRealtimePayload(payload);
+    const nightActionsChannel = subscribeToNightActions(room.id, () => {
+      void loadRoomData({ silent: true });
+    });
+    const eventsChannel = subscribeToEvents(room.id, () => {
+      void loadRoomData({ silent: true });
+    });
+    const votesChannel = subscribeToVotes(room.id, () => {
       void loadRoomData({ silent: true });
     });
 
@@ -139,6 +166,8 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       unsubscribe(roomChannel);
       unsubscribe(playersChannel);
       unsubscribe(nightActionsChannel);
+      unsubscribe(eventsChannel);
+      unsubscribe(votesChannel);
     };
   }, [loadRoomData, room?.id]);
 
@@ -160,7 +189,6 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     players.find((player) => player.id === localPlayerId) ?? null;
   const isHost =
     Boolean(selfPlayer?.is_host) || room?.host_player_id === localPlayerId;
-  const isNightPhase = room?.phase === "night";
   const phaseEndsAt = room ? getPhaseEndsAt(room) : undefined;
   const secondsLeft = useCountdown(phaseEndsAt);
   const orderedPlayers = React.useMemo(
@@ -169,27 +197,26 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   );
   const selectedPlayer =
     orderedPlayers.find((player) => player.id === selectedPlayerId) ?? null;
-  const aliveMafia = players.filter(
-    (player) => player.is_alive && player.role === "mafia"
+  const voteType = room?.phase === "voting_confirmation" ? "runoff" : "main";
+  const currentVotesByTarget = React.useMemo(
+    () =>
+      votes.reduce<Record<string, number>>((accumulator, vote) => {
+        if (!vote.target_player_id) {
+          return accumulator;
+        }
+
+        accumulator[vote.target_player_id] =
+          (accumulator[vote.target_player_id] ?? 0) + 1;
+        return accumulator;
+      }, {}),
+    [votes]
   );
-  const myNightActions = nightActions.filter(
-    (action) => action.actor_player_id === localPlayerId
+  const selfVote = votes.find((vote) => vote.voter_player_id === localPlayerId);
+  const runoffCandidateIds = React.useMemo(
+    () => getRunoffCandidateIds(gameEvents, room?.round_number ?? 0),
+    [gameEvents, room?.round_number]
   );
-  const otherMafiaAction =
-    selfPlayer?.role === "mafia"
-      ? nightActions.find(
-          (action) =>
-            action.action_type === "mafiaKill" &&
-            action.actor_player_id !== localPlayerId &&
-            aliveMafia.some(
-              (mafiaPlayer) => mafiaPlayer.id === action.actor_player_id
-            )
-        )
-      : undefined;
-  const otherMafiaTargetName = otherMafiaAction
-    ? players.find((player) => player.id === otherMafiaAction.target_player_id)
-        ?.name ?? "игрок"
-    : null;
+  const winner = room?.phase === "game_over" ? getWinner(players) : null;
 
   async function handleStartGame() {
     if (!room) {
@@ -253,6 +280,114 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     }
   }
 
+  async function handleRoleAction(
+    targetPlayer: Player,
+    actionType: NightAction["action_type"]
+  ) {
+    if (
+      !room ||
+      !selfPlayer ||
+      room.phase !== "night" ||
+      !selfPlayer.is_alive ||
+      !canTarget(selfPlayer, targetPlayer)
+    ) {
+      return;
+    }
+
+    setIsSubmittingAction(true);
+    setErrorMessage("");
+    setActionMessage("");
+
+    try {
+      if (actionType === "doctorHeal" && targetPlayer.id === selfPlayer.id) {
+        const selfHealCount = await getDoctorSelfHealCount(
+          room.id,
+          selfPlayer.id
+        );
+
+        if (selfHealCount >= room.settings.doctorSelfHealsLimit) {
+          throw new Error("Доктор уже использовал самолечение");
+        }
+      }
+
+      await addNightAction(room.id, {
+        round_number: room.round_number || 1,
+        actor_player_id: selfPlayer.id,
+        target_player_id: targetPlayer.id,
+        action_type: actionType,
+      });
+
+      await addGameEvent(room.id, {
+        round_number: room.round_number || 1,
+        phase: "night",
+        type: actionType,
+        message: getNightActionEventText(actionType),
+        visibility: "public",
+        target_player_id: null,
+      });
+
+      if (actionType === "detectiveCheck") {
+        setActionMessage(
+          `${targetPlayer.name}: ${formatRole(targetPlayer.role)}`
+        );
+      } else {
+        setActionMessage(getActionConfirmation(actionType, targetPlayer.name));
+      }
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Не удалось сохранить действие"));
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  }
+
+  async function handleStartVoting() {
+    if (!room || !isHost || room.phase !== "day") {
+      return;
+    }
+
+    try {
+      await addGameEvent(room.id, {
+        round_number: room.round_number,
+        phase: "voting",
+        type: "voting_started",
+        message: "Вы должны голосовать.",
+        visibility: "public",
+        target_player_id: null,
+      });
+      await updateRoomPhase(room.id, "voting");
+      setPendingVoteTargetId(null);
+      setActionMessage("Голосование началось.");
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Не удалось начать голосование"));
+    }
+  }
+
+  async function handleSubmitVote(targetPlayer: Player) {
+    if (
+      !room ||
+      !selfPlayer ||
+      !selfPlayer.is_alive ||
+      (room.phase !== "voting" && room.phase !== "voting_confirmation") ||
+      !targetPlayer.is_alive
+    ) {
+      return;
+    }
+
+    try {
+      await addVote(room.id, {
+        round_number: room.round_number || 1,
+        voter_player_id: selfPlayer.id,
+        target_player_id: targetPlayer.id,
+        vote_type: voteType,
+      });
+
+      setPendingVoteTargetId(null);
+      setActionMessage(`Ваш голос за ${targetPlayer.name} сохранён.`);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Не удалось сохранить голос"));
+    }
+  }
+
   async function handleAdvancePhase() {
     if (!room || !isHost) {
       return;
@@ -264,37 +399,58 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     try {
       if (room.phase === "night") {
         await resolveNightPhase(room, players, nightActions);
-      }
-
-      const nextPhase = getNextPhase(room.phase);
-      const nextRoundNumber =
-        room.phase === "day" ? room.round_number + 1 : room.round_number;
-
-      if (nextPhase === "day") {
-        await addGameEvent(room.id, {
-          round_number: room.round_number,
-          phase: "day",
-          type: "phase_changed",
-          message: "Наступил день.",
-          visibility: "public",
-          target_player_id: null,
+        await updateRoomPhase(room.id, "day", {
+          roundNumber: room.round_number,
         });
+        return;
       }
 
-      if (nextPhase === "night") {
-        await addGameEvent(room.id, {
-          round_number: nextRoundNumber,
-          phase: "night",
-          type: "phase_changed",
-          message: "Наступила новая ночь.",
-          visibility: "public",
-          target_player_id: null,
-        });
+      if (room.phase === "day") {
+        await handleStartVoting();
+        return;
       }
 
-      await updateRoomPhase(room.id, nextPhase, {
-        roundNumber: nextRoundNumber,
-      });
+      if (room.phase === "voting" || room.phase === "voting_confirmation") {
+        await resolveVotingPhase(
+          room,
+          players,
+          votes,
+          voteType,
+          runoffCandidateIds
+        );
+        const reloadedRoom = await getRoomByCode(room.code);
+
+        if (!reloadedRoom) {
+          return;
+        }
+
+        const winnerAfterVoting = getWinner(await getPlayers(reloadedRoom.id));
+
+        if (winnerAfterVoting) {
+          await addGameEvent(reloadedRoom.id, {
+            round_number: reloadedRoom.round_number,
+            phase: "game_over",
+            type: "game_over",
+            message: `Победила ${
+              winnerAfterVoting === "mafia" ? "мафия" : "мирная команда"
+            }.`,
+            visibility: "public",
+            target_player_id: null,
+          });
+          await updateRoomPhase(reloadedRoom.id, "game_over", {
+            roundNumber: reloadedRoom.round_number,
+          });
+          return;
+        }
+
+        if (room.phase === "voting_confirmation") {
+          await updateRoomPhase(room.id, "night", {
+            roundNumber: room.round_number + 1,
+          });
+        }
+
+        return;
+      }
     } catch (error) {
       setErrorMessage(getErrorMessage(error, "Не удалось переключить фазу"));
     }
@@ -309,58 +465,6 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       await updateRoomPhase(room.id, "game_over");
     } catch (error) {
       setErrorMessage(getErrorMessage(error, "Не удалось завершить игру"));
-    }
-  }
-
-  async function handleRoleAction(actionType: NightAction["action_type"]) {
-    if (
-      !room ||
-      !selfPlayer ||
-      !selectedPlayer ||
-      room.phase !== "night" ||
-      !selfPlayer.is_alive
-    ) {
-      return;
-    }
-
-    setIsSubmittingAction(true);
-    setErrorMessage("");
-    setActionMessage("");
-
-    try {
-      if (actionType === "doctorHeal" && selectedPlayer.id === selfPlayer.id) {
-        const selfHealCount = await getDoctorSelfHealCount(
-          room.id,
-          selfPlayer.id
-        );
-
-        if (selfHealCount >= room.settings.doctorSelfHealsLimit) {
-          throw new Error("Доктор уже использовал самолечение");
-        }
-      }
-
-      await addNightAction(room.id, {
-        round_number: room.round_number || 1,
-        actor_player_id: selfPlayer.id,
-        target_player_id: selectedPlayer.id,
-        action_type: actionType,
-      });
-
-      if (actionType === "detectiveCheck") {
-        setActionMessage(
-          `${selectedPlayer.name}: ${formatRole(selectedPlayer.role)}`
-        );
-      } else if (actionType === "detectiveKill") {
-        setActionMessage(`Инспектор выбрал цель: ${selectedPlayer.name}`);
-      } else if (actionType === "doctorHeal") {
-        setActionMessage(`Доктор спасает: ${selectedPlayer.name}`);
-      } else if (actionType === "mafiaKill") {
-        setActionMessage(`Мафия выбрала цель: ${selectedPlayer.name}`);
-      }
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error, "Не удалось сохранить действие"));
-    } finally {
-      setIsSubmittingAction(false);
     }
   }
 
@@ -407,14 +511,14 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       }}
       transition={{ duration: 0.6, ease: "easeInOut" }}
       className={[
-        "min-h-screen px-4 py-5",
+        "h-screen overflow-hidden px-4 py-4",
         room.phase === "night" ? "text-white" : "text-zinc-950",
       ].join(" ")}
     >
-      <div className="mx-auto grid w-full max-w-6xl gap-4">
+      <div className="mx-auto grid h-full w-full max-w-7xl grid-rows-[auto_auto_1fr] gap-3">
         <header
           className={[
-            "flex flex-wrap items-center justify-between gap-3 border-b pb-4",
+            "flex items-center justify-between gap-3 border-b pb-3",
             room.phase === "night" ? "border-white/10" : "border-zinc-200",
           ].join(" ")}
         >
@@ -430,14 +534,6 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
             <h1 className="font-mono text-3xl font-black tracking-[0.14em]">
               {room.code}
             </h1>
-            <p
-              className={[
-                "mt-1 text-sm font-semibold",
-                room.phase === "night" ? "text-white/65" : "text-zinc-500",
-              ].join(" ")}
-            >
-              Игроков: {players.length}
-            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -457,7 +553,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
         </header>
 
         {room.phase !== "lobby" ? (
-          <section className="grid place-items-center gap-2 py-1 text-center">
+          <section className="grid place-items-center gap-2 text-center">
             <p
               className={[
                 "text-sm font-black uppercase tracking-[0.28em]",
@@ -466,7 +562,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
             >
               {getPhaseEmoji(room.phase)} {formatPhase(room.phase)}
             </p>
-            <p className="mt-2 font-mono text-6xl font-black tracking-[0.26em] sm:text-7xl">
+            <p className="font-mono text-5xl font-black tracking-[0.24em] sm:text-6xl">
               {formatTimer(secondsLeft)}
             </p>
             {selfPlayer ? (
@@ -484,205 +580,120 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
           </section>
         ) : null}
 
-        {errorMessage ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-            {errorMessage}
-          </div>
-        ) : null}
-
-        {!selfPlayer ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-800">
-            Игрок не найден в комнате. Вернитесь назад и войдите заново по коду.
-          </div>
-        ) : null}
-
-        {room.phase === "lobby" ? (
-          <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="grid min-h-0 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="min-h-0">
             <PlayersPanel
+              room={room}
               players={orderedPlayers}
               localPlayerId={localPlayerId}
               isExpanded={isPlayersExpanded}
               onToggle={() => setIsPlayersExpanded((current) => !current)}
               onSelectPlayer={setSelectedPlayerId}
               selectedPlayerId={selectedPlayerId}
-              phase={room.phase}
               selfPlayer={selfPlayer}
-              onSubmitAction={handleRoleAction}
               isSubmittingAction={isSubmittingAction}
-              otherMafiaTargetName={otherMafiaTargetName}
-              myNightActions={myNightActions}
+              onRoleAction={handleRoleAction}
+              onSetPendingVoteTarget={setPendingVoteTargetId}
+              pendingVoteTargetId={pendingVoteTargetId}
+              onSubmitVote={handleSubmitVote}
+              selfVote={selfVote}
+              currentVotesByTarget={currentVotesByTarget}
+              runoffCandidateIds={runoffCandidateIds}
               actionMessage={actionMessage}
+              errorMessage={errorMessage}
             />
+          </div>
 
-            {isHost ? (
-              <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
-                      Настройки
-                    </p>
-                    <h2 className="mt-2 text-2xl font-black">
-                      Параметры комнаты
-                    </h2>
-                  </div>
-                  <div className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-bold text-zinc-600">
-                    {isSavingSettings ? "Сохранение..." : "Только хост"}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <RoomSettingsForm
-                    settings={room.settings as RoomSettings}
-                    onChange={(nextSettings) => {
-                      void handleSettingsChange(nextSettings);
-                    }}
-                  />
-                </div>
-              </div>
-            ) : (
-              <WaitingPanel />
-            )}
-          </section>
-        ) : (
-          <section className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-            <PlayersPanel
-              players={orderedPlayers}
-              localPlayerId={localPlayerId}
-              isExpanded={isPlayersExpanded}
-              onToggle={() => setIsPlayersExpanded((current) => !current)}
-              onSelectPlayer={setSelectedPlayerId}
-              selectedPlayerId={selectedPlayerId}
-              phase={room.phase}
-              selfPlayer={selfPlayer}
-              onSubmitAction={handleRoleAction}
-              isSubmittingAction={isSubmittingAction}
-              otherMafiaTargetName={otherMafiaTargetName}
-              myNightActions={myNightActions}
-              actionMessage={actionMessage}
-            />
-
-            <div className="grid gap-4">
-              {isHost ? (
-                <HostControls
-                  phase={room.phase}
-                  roundNumber={room.round_number}
-                  onAdvancePhase={() => {
-                    void handleAdvancePhase();
-                  }}
-                  onEndGame={() => {
-                    void handleEndGame();
-                  }}
+          <div className="grid min-h-0 grid-rows-[auto_1fr] gap-3">
+            {room.phase === "lobby" ? (
+              isHost ? (
+                <SettingsPanel
+                  settings={room.settings as RoomSettings}
+                  isSavingSettings={isSavingSettings}
+                  onChange={handleSettingsChange}
                 />
-              ) : null}
-            </div>
-          </section>
-        )}
+              ) : (
+                <WaitingPanel />
+              )
+            ) : room.phase === "game_over" ? (
+              <FinalPanel players={players} winner={winner} />
+            ) : (
+              <HostControls
+                room={room}
+                isHost={isHost}
+                onAdvancePhase={() => {
+                  void handleAdvancePhase();
+                }}
+                onEndGame={() => {
+                  void handleEndGame();
+                }}
+              />
+            )}
+
+            <EventsPanel
+              phase={room.phase}
+              events={gameEvents}
+              actionMessage={actionMessage}
+            />
+          </div>
+        </section>
       </div>
     </motion.main>
   );
-
-  function applyPlayersRealtimePayload(
-    payload: RealtimePostgresChangesPayload<Player>
-  ) {
-    if (payload.eventType === "INSERT" && payload.new) {
-      setPlayers((currentPlayers) => {
-        const nextPlayer = payload.new as Player;
-
-        if (currentPlayers.some((player) => player.id === nextPlayer.id)) {
-          return currentPlayers;
-        }
-
-        return orderPlayers([...currentPlayers, nextPlayer], localPlayerId);
-      });
-      return;
-    }
-
-    if (payload.eventType === "UPDATE" && payload.new) {
-      setPlayers((currentPlayers) =>
-        currentPlayers.map((player) =>
-          player.id === payload.new.id ? (payload.new as Player) : player
-        )
-      );
-      return;
-    }
-
-    if (payload.eventType === "DELETE" && payload.old?.id) {
-      setPlayers((currentPlayers) =>
-        currentPlayers.filter((player) => player.id !== payload.old.id)
-      );
-    }
-  }
-
-  function applyNightActionRealtimePayload(
-    payload: RealtimePostgresChangesPayload<NightAction>
-  ) {
-    if (payload.eventType === "INSERT" && payload.new) {
-      setNightActions((currentActions) => {
-        const nextAction = payload.new as NightAction;
-
-        if (currentActions.some((action) => action.id === nextAction.id)) {
-          return currentActions;
-        }
-
-        return [...currentActions, nextAction];
-      });
-      return;
-    }
-
-    if (payload.eventType === "UPDATE" && payload.new) {
-      setNightActions((currentActions) =>
-        currentActions.map((action) =>
-          action.id === payload.new.id ? (payload.new as NightAction) : action
-        )
-      );
-      return;
-    }
-
-    if (payload.eventType === "DELETE" && payload.old?.id) {
-      setNightActions((currentActions) =>
-        currentActions.filter((action) => action.id !== payload.old.id)
-      );
-    }
-  }
 };
 
 function PlayersPanel({
+  room,
   players,
   localPlayerId,
   isExpanded,
   onToggle,
   onSelectPlayer,
   selectedPlayerId,
-  phase,
   selfPlayer,
-  onSubmitAction,
   isSubmittingAction,
-  otherMafiaTargetName,
-  myNightActions,
+  onRoleAction,
+  onSetPendingVoteTarget,
+  pendingVoteTargetId,
+  onSubmitVote,
+  selfVote,
+  currentVotesByTarget,
+  runoffCandidateIds,
   actionMessage,
+  errorMessage,
 }: {
+  room: RoomRecord;
   players: Player[];
   localPlayerId: string | null;
   isExpanded: boolean;
   onToggle: () => void;
   onSelectPlayer: (playerId: string) => void;
   selectedPlayerId: string | null;
-  phase: RoomRecord["phase"];
   selfPlayer: Player | null;
-  onSubmitAction: (actionType: NightAction["action_type"]) => Promise<void>;
   isSubmittingAction: boolean;
-  otherMafiaTargetName: string | null;
-  myNightActions: NightAction[];
+  onRoleAction: (
+    targetPlayer: Player,
+    actionType: NightAction["action_type"]
+  ) => Promise<void>;
+  onSetPendingVoteTarget: (playerId: string | null) => void;
+  pendingVoteTargetId: string | null;
+  onSubmitVote: (targetPlayer: Player) => Promise<void>;
+  selfVote?: Vote;
+  currentVotesByTarget: Record<string, number>;
+  runoffCandidateIds: string[];
   actionMessage: string;
+  errorMessage: string;
 }) {
-  const darkMode = phase === "night";
-  const canAct = Boolean(selfPlayer?.is_alive && phase === "night");
-  const currentAction = myNightActions[0];
+  const darkMode = room.phase === "night";
+  const canActAtNight = Boolean(selfPlayer?.is_alive && room.phase === "night");
+  const canVote =
+    Boolean(selfPlayer?.is_alive) &&
+    (room.phase === "voting" || room.phase === "voting_confirmation");
 
   return (
     <div
       className={[
-        "rounded-2xl border p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+        "grid h-full min-h-0 rounded-2xl border p-4 shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
         darkMode
           ? "border-white/10 bg-white/5 backdrop-blur"
           : "border-zinc-200 bg-white",
@@ -698,7 +709,7 @@ function PlayersPanel({
           >
             Игроки
           </p>
-          <h2 className="mt-2 text-2xl font-black">Список комнаты</h2>
+          <h2 className="mt-1 text-2xl font-black">Список комнаты</h2>
         </div>
 
         <Button variant="ghost" onClick={onToggle}>
@@ -707,23 +718,33 @@ function PlayersPanel({
       </div>
 
       {isExpanded ? (
-        <div className="mt-4 grid gap-2">
+        <div className="mt-3 min-h-0 space-y-2 overflow-auto pr-1">
           {players.map((player, index) => {
             const isSelf = player.id === localPlayerId;
             const isSelected = player.id === selectedPlayerId;
+            const isDead = !player.is_alive;
+            const canVoteForThisPlayer =
+              canVote &&
+              player.is_alive &&
+              player.id !== localPlayerId &&
+              (room.phase !== "voting_confirmation" ||
+                runoffCandidateIds.includes(player.id));
+            const showVoteConfirm = pendingVoteTargetId === player.id;
 
             return (
               <div
                 key={player.id}
                 className={[
                   "rounded-xl border px-4 py-3 transition",
-                  darkMode
-                    ? "border-white/10 bg-white/5 hover:bg-white/10"
-                    : "border-zinc-200 bg-zinc-50 hover:bg-white",
+                  isDead
+                    ? "border-red-400/40 bg-red-500/10 opacity-60"
+                    : darkMode
+                    ? "border-white/10 bg-white/5"
+                    : "border-zinc-200 bg-zinc-50",
                   isSelf
                     ? darkMode
-                      ? "order-first border-2 border-emerald-400"
-                      : "order-first border-2 border-zinc-950"
+                      ? "border-2 border-emerald-400"
+                      : "border-2 border-zinc-950"
                     : "",
                   isSelected
                     ? darkMode
@@ -737,14 +758,7 @@ function PlayersPanel({
                   onClick={() => onSelectPlayer(player.id)}
                   className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 text-left"
                 >
-                  <div
-                    className={[
-                      "grid h-9 w-9 place-items-center rounded-full text-sm font-black",
-                      darkMode
-                        ? "bg-white text-zinc-950"
-                        : "bg-white text-zinc-950",
-                    ].join(" ")}
-                  >
+                  <div className="grid h-9 w-9 place-items-center rounded-full bg-white text-sm font-black text-zinc-950">
                     {index + 1}
                   </div>
                   <div className="min-w-0">
@@ -759,7 +773,7 @@ function PlayersPanel({
                       ].join(" ")}
                     >
                       {player.is_host ? "Хост" : "Игрок"} ·{" "}
-                      {player.is_alive ? "Жив" : "Выбыл"}
+                      {player.is_alive ? "Жив" : "Погиб"}
                     </p>
                   </div>
                   <div
@@ -770,98 +784,68 @@ function PlayersPanel({
                         : "bg-white text-zinc-600",
                     ].join(" ")}
                   >
-                    {player.score}
+                    {currentVotesByTarget[player.id] ?? 0}
                   </div>
                 </button>
 
-                {isSelected && canAct ? (
+                {isSelected && canActAtNight && selfPlayer ? (
                   <div className="mt-3 border-t border-current/10 pt-3">
-                    {selfPlayer?.role === "mafia" ? (
-                      <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      {selfPlayer.role === "mafia" ? (
                         <Button
                           className="min-h-10 px-3 py-2"
                           disabled={
-                            isSubmittingAction ||
-                            !selfPlayer ||
-                            !canTarget(selfPlayer, player)
+                            isSubmittingAction || !canTarget(selfPlayer, player)
                           }
                           onClick={() => {
-                            void onSubmitAction("mafiaKill");
+                            void onRoleAction(player, "mafiaKill");
                           }}
                         >
                           Убить
                         </Button>
-                      </div>
-                    ) : null}
+                      ) : null}
 
-                    {selfPlayer?.role === "inspector" ? (
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          className="min-h-10 px-3 py-2"
-                          disabled={
-                            isSubmittingAction ||
-                            !selfPlayer ||
-                            selfPlayer.id === player.id ||
-                            !player.is_alive
-                          }
-                          onClick={() => {
-                            void onSubmitAction("detectiveCheck");
-                          }}
-                        >
-                          Узнать роль
-                        </Button>
-                        <Button
-                          className="min-h-10 px-3 py-2"
-                          disabled={
-                            isSubmittingAction ||
-                            !selfPlayer ||
-                            selfPlayer.id === player.id ||
-                            !player.is_alive
-                          }
-                          onClick={() => {
-                            void onSubmitAction("detectiveKill");
-                          }}
-                        >
-                          Выстрелить
-                        </Button>
-                      </div>
-                    ) : null}
+                      {selfPlayer.role === "inspector" ? (
+                        <>
+                          <Button
+                            className="min-h-10 px-3 py-2"
+                            disabled={
+                              isSubmittingAction ||
+                              !canTarget(selfPlayer, player)
+                            }
+                            onClick={() => {
+                              void onRoleAction(player, "detectiveCheck");
+                            }}
+                          >
+                            Узнать роль
+                          </Button>
+                          <Button
+                            className="min-h-10 px-3 py-2"
+                            disabled={
+                              isSubmittingAction ||
+                              !canTarget(selfPlayer, player)
+                            }
+                            onClick={() => {
+                              void onRoleAction(player, "detectiveKill");
+                            }}
+                          >
+                            Выстрелить
+                          </Button>
+                        </>
+                      ) : null}
 
-                    {selfPlayer?.role === "doctor" ? (
-                      <div className="flex flex-wrap gap-2">
+                      {selfPlayer.role === "doctor" ? (
                         <Button
                           className="min-h-10 px-3 py-2"
                           disabled={isSubmittingAction || !player.is_alive}
                           onClick={() => {
-                            void onSubmitAction("doctorHeal");
+                            void onRoleAction(player, "doctorHeal");
                           }}
                         >
                           Спасти
                         </Button>
-                      </div>
-                    ) : null}
-
-                    {currentAction ? (
-                      <p
-                        className={[
-                          "mt-2 text-xs font-semibold",
-                          darkMode ? "text-emerald-200" : "text-emerald-700",
-                        ].join(" ")}
-                      >
-                        Ваш ночной выбор сохранён.
-                      </p>
-                    ) : null}
-
-                    {selfPlayer?.role === "mafia" && otherMafiaTargetName ? (
-                      <p
-                        className={[
-                          "mt-2 text-xs font-semibold",
-                          darkMode ? "text-white/70" : "text-zinc-500",
-                        ].join(" ")}
-                      >
-                        Другой мафиози выбрал: {otherMafiaTargetName}
-                      </p>
-                    ) : null}
+                      ) : null}
+                    </div>
 
                     {actionMessage ? (
                       <p
@@ -875,11 +859,90 @@ function PlayersPanel({
                     ) : null}
                   </div>
                 ) : null}
+
+                {isSelected && canVoteForThisPlayer ? (
+                  <div className="mt-3 border-t border-current/10 pt-3">
+                    {!showVoteConfirm ? (
+                      <Button
+                        className="min-h-10 px-3 py-2"
+                        onClick={() => onSetPendingVoteTarget(player.id)}
+                      >
+                        Голосовать
+                      </Button>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          className="min-h-10 px-3 py-2"
+                          variant="primary"
+                          onClick={() => {
+                            void onSubmitVote(player);
+                          }}
+                        >
+                          Подтвердить голос
+                        </Button>
+                        <Button
+                          className="min-h-10 px-3 py-2"
+                          variant="ghost"
+                          onClick={() => onSetPendingVoteTarget(null)}
+                        >
+                          Отмена
+                        </Button>
+                      </div>
+                    )}
+
+                    {selfVote ? (
+                      <p
+                        className={[
+                          "mt-2 text-xs font-semibold",
+                          darkMode ? "text-emerald-200" : "text-emerald-700",
+                        ].join(" ")}
+                      >
+                        Ваш голос уже сохранён.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             );
           })}
         </div>
       ) : null}
+
+      {errorMessage && !isExpanded ? (
+        <p className="mt-3 text-xs font-semibold text-red-500">
+          {errorMessage}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function SettingsPanel({
+  settings,
+  isSavingSettings,
+  onChange,
+}: {
+  settings: RoomSettings;
+  isSavingSettings: boolean;
+  onChange: (settings: RoomSettings) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+            Настройки
+          </p>
+          <h2 className="mt-2 text-2xl font-black">Параметры комнаты</h2>
+        </div>
+        <div className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-bold text-zinc-600">
+          {isSavingSettings ? "Сохранение..." : "Только хост"}
+        </div>
+      </div>
+
+      <div className="mt-4 max-h-[35vh] overflow-auto pr-1">
+        <RoomSettingsForm settings={settings} onChange={onChange} />
+      </div>
     </div>
   );
 }
@@ -898,190 +961,49 @@ function WaitingPanel() {
   );
 }
 
-function ActionPanel({
-  room,
-  selfPlayer,
-  selectedPlayer,
-  onSubmitAction,
-  isSubmittingAction,
-  otherMafiaTargetName,
-  myNightActions,
-}: {
-  room: RoomRecord;
-  selfPlayer: Player | null;
-  selectedPlayer: Player | null;
-  onSubmitAction: (actionType: NightAction["action_type"]) => void;
-  isSubmittingAction: boolean;
-  otherMafiaTargetName: string | null;
-  myNightActions: NightAction[];
-}) {
-  const darkMode = room.phase === "night";
-  const canAct = Boolean(selfPlayer?.is_alive && room.phase === "night");
-  const currentAction = myNightActions[0];
-
-  return (
-    <div
-      className={[
-        "rounded-2xl border p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
-        darkMode
-          ? "border-white/10 bg-white/5 backdrop-blur"
-          : "border-zinc-200 bg-white",
-      ].join(" ")}
-    >
-      <p
-        className={[
-          "text-xs font-black uppercase tracking-[0.18em]",
-          darkMode ? "text-white/60" : "text-zinc-500",
-        ].join(" ")}
-      >
-        Действие
-      </p>
-      <h2 className="mt-2 text-2xl font-black">
-        {selfPlayer ? formatRole(selfPlayer.role) : "Наблюдатель"}
-      </h2>
-
-      <p
-        className={[
-          "mt-3 text-sm font-semibold",
-          darkMode ? "text-white/70" : "text-zinc-500",
-        ].join(" ")}
-      >
-        {selfPlayer ? getRoleDescription(selfPlayer.role) : "Ожидайте."}
-      </p>
-
-      {selectedPlayer ? (
-        <div
-          className={[
-            "mt-4 rounded-2xl border p-4",
-            darkMode
-              ? "border-white/10 bg-black/20"
-              : "border-zinc-200 bg-zinc-50",
-          ].join(" ")}
-        >
-          <p
-            className={[
-              "text-xs font-black uppercase tracking-[0.18em]",
-              darkMode ? "text-white/60" : "text-zinc-500",
-            ].join(" ")}
-          >
-            Выбран игрок
-          </p>
-          <p className="mt-2 text-2xl font-black">{selectedPlayer.name}</p>
-        </div>
-      ) : null}
-
-      {currentAction ? (
-        <p
-          className={[
-            "mt-4 text-sm font-semibold",
-            darkMode ? "text-emerald-200" : "text-emerald-700",
-          ].join(" ")}
-        >
-          Ваш текущий ночной выбор уже сохранён.
-        </p>
-      ) : null}
-
-      {selfPlayer?.role === "mafia" && otherMafiaTargetName ? (
-        <p
-          className={[
-            "mt-4 text-sm font-semibold",
-            darkMode ? "text-white/70" : "text-zinc-500",
-          ].join(" ")}
-        >
-          Другой мафиози выбрал игрока: {otherMafiaTargetName}
-        </p>
-      ) : null}
-
-      {!canAct ? (
-        <p
-          className={[
-            "mt-4 text-sm font-semibold",
-            darkMode ? "text-white/60" : "text-zinc-500",
-          ].join(" ")}
-        >
-          Сейчас действий нет. Ночью роли смогут выбрать цель.
-        </p>
-      ) : null}
-
-      {canAct && selectedPlayer ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {selfPlayer?.role === "mafia" ? (
-            <Button
-              disabled={
-                isSubmittingAction || !canTarget(selfPlayer, selectedPlayer)
-              }
-              onClick={() => {
-                void onSubmitAction("mafiaKill");
-              }}
-            >
-              Подтвердить жертву
-            </Button>
-          ) : null}
-
-          {selfPlayer?.role === "inspector" ? (
-            <>
-              <Button
-                disabled={
-                  isSubmittingAction || selfPlayer.id === selectedPlayer.id
-                }
-                onClick={() => {
-                  void onSubmitAction("detectiveCheck");
-                }}
-              >
-                Узнать роль
-              </Button>
-              <Button
-                disabled={
-                  isSubmittingAction || selfPlayer.id === selectedPlayer.id
-                }
-                onClick={() => {
-                  void onSubmitAction("detectiveKill");
-                }}
-              >
-                Выстрелить
-              </Button>
-            </>
-          ) : null}
-
-          {selfPlayer?.role === "doctor" ? (
-            <Button
-              disabled={isSubmittingAction || !selectedPlayer.is_alive}
-              onClick={() => {
-                void onSubmitAction("doctorHeal");
-              }}
-            >
-              Спасти
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {room.phase === "day" ? (
-        <p
-          className={[
-            "mt-4 text-sm font-semibold",
-            darkMode ? "text-white/60" : "text-zinc-500",
-          ].join(" ")}
-        >
-          Сейчас день. Обсуждайте, кого подозреваете, и ждите следующую ночь.
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function HostControls({
-  phase,
-  roundNumber,
+  room,
+  isHost,
   onAdvancePhase,
   onEndGame,
 }: {
-  phase: RoomRecord["phase"];
-  roundNumber: number;
+  room: RoomRecord;
+  isHost: boolean;
   onAdvancePhase: () => void;
   onEndGame: () => void;
 }) {
-  const darkMode = phase === "night";
+  const darkMode = room.phase === "night";
+
+  if (!isHost) {
+    return (
+      <div
+        className={[
+          "rounded-2xl border p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+          darkMode
+            ? "border-white/10 bg-white/5 backdrop-blur"
+            : "border-zinc-200 bg-white",
+        ].join(" ")}
+      >
+        <p
+          className={[
+            "text-xs font-black uppercase tracking-[0.18em]",
+            darkMode ? "text-white/60" : "text-zinc-500",
+          ].join(" ")}
+        >
+          Фаза
+        </p>
+        <h2 className="mt-2 text-2xl font-black">{formatPhase(room.phase)}</h2>
+        <p
+          className={[
+            "mt-3 text-sm font-semibold",
+            darkMode ? "text-white/70" : "text-zinc-500",
+          ].join(" ")}
+        >
+          Следуйте подсказкам на экране и ждите действий хоста.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1107,16 +1029,146 @@ function HostControls({
           darkMode ? "text-white/70" : "text-zinc-500",
         ].join(" ")}
       >
-        Раунд {roundNumber} · {formatPhase(phase)}
+        Раунд {room.round_number} · {formatPhase(room.phase)}
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button onClick={onAdvancePhase}>
-          {phase === "night" ? "Перейти к дню" : "Перейти к ночи"}
+          {getAdvanceButtonLabel(room.phase)}
         </Button>
         <Button variant="ghost" onClick={onEndGame}>
           Завершить игру
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function EventsPanel({
+  phase,
+  events,
+  actionMessage,
+}: {
+  phase: RoomRecord["phase"];
+  events: GameEvent[];
+  actionMessage: string;
+}) {
+  const darkMode = phase === "night";
+  const visibleEvents = events.slice(-14).reverse();
+
+  return (
+    <div
+      className={[
+        "grid min-h-0 rounded-2xl border p-4 shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+        darkMode
+          ? "border-white/10 bg-white/5 backdrop-blur"
+          : "border-zinc-200 bg-white",
+      ].join(" ")}
+    >
+      <div className="mb-3">
+        <p
+          className={[
+            "text-xs font-black uppercase tracking-[0.18em]",
+            darkMode ? "text-white/60" : "text-zinc-500",
+          ].join(" ")}
+        >
+          События
+        </p>
+        <h2 className="mt-1 text-xl font-black">Журнал игры</h2>
+      </div>
+
+      <div className="min-h-0 space-y-2 overflow-auto pr-1">
+        {actionMessage ? (
+          <article
+            className={[
+              "ml-auto max-w-[88%] rounded-2xl px-4 py-2 text-xs font-semibold",
+              darkMode
+                ? "bg-emerald-500/20 text-emerald-100"
+                : "bg-emerald-50 text-emerald-800",
+            ].join(" ")}
+          >
+            {actionMessage}
+          </article>
+        ) : null}
+
+        {visibleEvents.length === 0 ? (
+          <p
+            className={[
+              "text-sm font-semibold",
+              darkMode ? "text-white/60" : "text-zinc-500",
+            ].join(" ")}
+          >
+            События появятся после старта игры.
+          </p>
+        ) : (
+          visibleEvents.map((event) => (
+            <article
+              key={event.id}
+              className={[
+                "max-w-[92%] rounded-2xl px-4 py-2 text-xs font-semibold",
+                darkMode
+                  ? "bg-white/10 text-white"
+                  : "bg-zinc-100 text-zinc-800",
+              ].join(" ")}
+            >
+              {event.message}
+            </article>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FinalPanel({
+  players,
+  winner,
+}: {
+  players: Player[];
+  winner: "mafia" | "civilians" | null;
+}) {
+  const rankedPlayers = [...players]
+    .map((player) => ({
+      ...player,
+      finalScore: computeFinalScore(player, winner),
+    }))
+    .sort((left, right) => right.finalScore - left.finalScore);
+
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+        Финал
+      </p>
+      <h2 className="mt-2 text-2xl font-black">
+        {winner === "mafia"
+          ? "Победила мафия"
+          : winner === "civilians"
+          ? "Победили мирные"
+          : "Игра завершена"}
+      </h2>
+
+      <div className="mt-4 space-y-2">
+        {rankedPlayers.map((player, index) => (
+          <div
+            key={player.id}
+            className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3"
+          >
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-white text-sm font-black text-zinc-950">
+              {index + 1}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black">{player.name}</p>
+              <p className="text-xs font-semibold text-zinc-500">
+                {formatRole(player.role)} ·{" "}
+                {player.is_alive ? "Выжил" : "Выбыл"}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-black">{player.finalScore}</p>
+              <p className="text-xs font-semibold text-zinc-500">очков</p>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1163,9 +1215,16 @@ async function resolveNightPhase(
     }
   }
 
-  await Promise.all(
-    [...deathTargetIds].map((playerId) => killPlayer(playerId))
-  );
+  if (mafiaTargetId && healedTargetIds.has(mafiaTargetId)) {
+    await addGameEvent(room.id, {
+      round_number: room.round_number,
+      phase: "night",
+      type: "night_saved",
+      message: "Доктор спас игрока.",
+      visibility: "public",
+      target_player_id: mafiaTargetId,
+    });
+  }
 
   if (deathTargetIds.size === 0) {
     await addGameEvent(room.id, {
@@ -1183,16 +1242,154 @@ async function resolveNightPhase(
     [...deathTargetIds].map(async (playerId) => {
       const player = players.find((item) => item.id === playerId);
 
+      await killPlayer(playerId);
       await addGameEvent(room.id, {
         round_number: room.round_number,
         phase: "night",
         type: "night_result",
-        message: `${player?.name ?? "Игрок"} не пережил эту ночь.`,
+        message: `${player?.name ?? "Игрок"} погиб этой ночью.`,
+        visibility: "public",
+        target_player_id: playerId,
+      });
+      await addGameEvent(room.id, {
+        round_number: room.round_number,
+        phase: "night",
+        type: "role_revealed",
+        message: `Роль игрока ${player?.name ?? "Игрок"}: ${formatRole(
+          player?.role ?? "civilian"
+        )}.`,
         visibility: "public",
         target_player_id: playerId,
       });
     })
   );
+}
+
+async function resolveVotingPhase(
+  room: RoomRecord,
+  players: Player[],
+  votes: Vote[],
+  voteType: string,
+  runoffCandidateIds: string[]
+): Promise<void> {
+  const alivePlayers = players.filter((player) => player.is_alive);
+
+  if (votes.length <= Math.floor(alivePlayers.length / 2)) {
+    await addGameEvent(room.id, {
+      round_number: room.round_number,
+      phase: room.phase,
+      type: "voting_failed",
+      message: "Недостаточно голосов. Никто не выбыл.",
+      visibility: "public",
+      target_player_id: null,
+    });
+
+    await updateRoomPhase(room.id, "night", {
+      roundNumber: room.round_number + 1,
+    });
+    return;
+  }
+
+  const votesByTarget = votes.reduce<Record<string, number>>(
+    (accumulator, vote) => {
+      if (!vote.target_player_id) {
+        return accumulator;
+      }
+
+      accumulator[vote.target_player_id] =
+        (accumulator[vote.target_player_id] ?? 0) + 1;
+      return accumulator;
+    },
+    {}
+  );
+
+  const sortedVotes = Object.entries(votesByTarget).sort(
+    (left, right) => right[1] - left[1]
+  );
+  const highestVoteCount = sortedVotes[0]?.[1] ?? 0;
+  const topTargetIds = sortedVotes
+    .filter(([, count]) => count === highestVoteCount)
+    .map(([targetId]) => targetId);
+
+  if (topTargetIds.length > 1 && room.phase === "voting") {
+    const tieNames = players
+      .filter((player) => topTargetIds.includes(player.id))
+      .map((player) => player.name)
+      .join(", ");
+
+    await Promise.all(
+      topTargetIds.map((playerId) =>
+        addGameEvent(room.id, {
+          round_number: room.round_number,
+          phase: "voting_confirmation",
+          type: "runoff_candidate",
+          message: "Кандидат на переголосование",
+          visibility: "public",
+          target_player_id: playerId,
+        })
+      )
+    );
+
+    await addGameEvent(room.id, {
+      round_number: room.round_number,
+      phase: "voting_confirmation",
+      type: "runoff_started",
+      message: `Ничья: ${tieNames}. Повторное голосование.`,
+      visibility: "public",
+      target_player_id: null,
+    });
+    await updateRoomPhase(room.id, "voting_confirmation");
+    return;
+  }
+
+  if (topTargetIds.length > 1 && room.phase === "voting_confirmation") {
+    await addGameEvent(room.id, {
+      round_number: room.round_number,
+      phase: "voting_confirmation",
+      type: "runoff_failed",
+      message:
+        "Повторное голосование снова завершилось ничьей. Никто не выбыл.",
+      visibility: "public",
+      target_player_id: null,
+    });
+    await updateRoomPhase(room.id, "night", {
+      roundNumber: room.round_number + 1,
+    });
+    return;
+  }
+
+  const eliminatedPlayerId = topTargetIds[0] ?? runoffCandidateIds[0];
+
+  if (!eliminatedPlayerId) {
+    return;
+  }
+
+  const eliminatedPlayer = players.find(
+    (player) => player.id === eliminatedPlayerId
+  );
+  await killPlayer(eliminatedPlayerId);
+  await addGameEvent(room.id, {
+    round_number: room.round_number,
+    phase: room.phase,
+    type: "player_exiled",
+    message: `${eliminatedPlayer?.name ?? "Игрок"} изгнан голосованием.`,
+    visibility: "public",
+    target_player_id: eliminatedPlayerId,
+  });
+  await addGameEvent(room.id, {
+    round_number: room.round_number,
+    phase: room.phase,
+    type: "role_revealed",
+    message: `Роль игрока ${eliminatedPlayer?.name ?? "Игрок"}: ${formatRole(
+      eliminatedPlayer?.role ?? "civilian"
+    )}.`,
+    visibility: "public",
+    target_player_id: eliminatedPlayerId,
+  });
+
+  await updateRoomPhase(room.id, "night", {
+    roundNumber: room.round_number + 1,
+  });
 }
 
 function getPhaseEndsAt(room: RoomRecord): number | undefined {
@@ -1211,19 +1408,6 @@ function getPhaseEndsAt(room: RoomRecord): number | undefined {
   }
 
   return undefined;
-}
-
-function orderPlayers(
-  players: Player[],
-  localPlayerId: string | null
-): Player[] {
-  return [...players].sort((left, right) => {
-    if (left.id === localPlayerId && right.id !== localPlayerId) return -1;
-    if (right.id === localPlayerId && left.id !== localPlayerId) return 1;
-    return (
-      new Date(left.joined_at).getTime() - new Date(right.joined_at).getTime()
-    );
-  });
 }
 
 function buildRoleAssignments(
@@ -1276,6 +1460,29 @@ function shuffle<T>(items: T[]): T[] {
   }
 
   return nextItems;
+}
+
+function orderPlayers(
+  players: Player[],
+  localPlayerId: string | null
+): Player[] {
+  return [...players].sort((left, right) => {
+    if (left.is_alive !== right.is_alive) {
+      return left.is_alive ? -1 : 1;
+    }
+
+    if (left.id === localPlayerId && right.id !== localPlayerId) {
+      return -1;
+    }
+
+    if (right.id === localPlayerId && left.id !== localPlayerId) {
+      return 1;
+    }
+
+    return (
+      new Date(left.joined_at).getTime() - new Date(right.joined_at).getTime()
+    );
+  });
 }
 
 function canTarget(actor: Player, target: Player): boolean {
@@ -1357,20 +1564,68 @@ function resolveMafiaTargetId(
   return sortedVotes[0][0];
 }
 
-function getNextPhase(currentPhase: RoomRecord["phase"]): RoomRecord["phase"] {
-  if (currentPhase === "night") {
-    return "day";
+function getNightActionEventText(
+  actionType: NightAction["action_type"]
+): string {
+  switch (actionType) {
+    case "mafiaKill":
+      return "Мафия вышла на охоту.";
+    case "doctorHeal":
+      return "Доктор вышел на спасение.";
+    case "detectiveCheck":
+      return "Инспектор начал расследование.";
+    case "detectiveKill":
+      return "Инспектор вышел на охоту.";
+    default:
+      return "Игрок совершил действие.";
   }
+}
 
-  if (currentPhase === "day") {
-    return "night";
+function getActionConfirmation(
+  actionType: NightAction["action_type"],
+  playerName: string
+): string {
+  switch (actionType) {
+    case "mafiaKill":
+      return `Вы выбрали жертву: ${playerName}.`;
+    case "doctorHeal":
+      return `Вы выбрали спасение для ${playerName}.`;
+    case "detectiveKill":
+      return `Вы решили выстрелить в ${playerName}.`;
+    default:
+      return `Действие по цели ${playerName} сохранено.`;
   }
+}
 
-  if (currentPhase === "game_over") {
-    return "game_over";
+function getAdvanceButtonLabel(phase: RoomRecord["phase"]): string {
+  switch (phase) {
+    case "night":
+      return "Завершить ночь";
+    case "day":
+      return "Начать голосование";
+    case "voting":
+      return "Подсчитать голоса";
+    case "voting_confirmation":
+      return "Завершить переголосование";
+    default:
+      return "Продолжить";
   }
+}
 
-  return "night";
+function getPhaseEmoji(phase: RoomRecord["phase"]): string {
+  switch (phase) {
+    case "night":
+      return "🌙";
+    case "day":
+      return "☀️";
+    case "voting":
+    case "voting_confirmation":
+      return "🗳️";
+    case "game_over":
+      return "🏁";
+    default:
+      return "🎭";
+  }
 }
 
 function formatPhase(phase: RoomRecord["phase"]): string {
@@ -1384,26 +1639,11 @@ function formatPhase(phase: RoomRecord["phase"]): string {
     case "voting":
       return "Голосование";
     case "voting_confirmation":
-      return "Подтверждение";
+      return "Переголосование";
     case "game_over":
       return "Конец игры";
     default:
       return phase;
-  }
-}
-
-function getPhaseEmoji(phase: RoomRecord["phase"]): string {
-  switch (phase) {
-    case "night":
-      return "🌙";
-    case "day":
-      return "☀️";
-    case "voting":
-      return "🗳️";
-    case "game_over":
-      return "🏁";
-    default:
-      return "🎭";
   }
 }
 
@@ -1422,21 +1662,6 @@ function formatRole(role: PlayerRole): string {
   }
 }
 
-function getRoleDescription(role: PlayerRole): string {
-  switch (role) {
-    case "mafia":
-      return "Ночью выберите жертву. Если мафии двое, вы увидите выбор второго мафиози.";
-    case "doctor":
-      return "Ночью выберите, кого спасти. Самого себя можно спасти только один раз.";
-    case "inspector":
-      return "Ночью можно узнать роль игрока или выстрелить в него.";
-    case "civilian":
-      return "Ночью у вас нет действий. Днём обсуждайте и ищите мафию.";
-    default:
-      return "Роль будет выдана при старте игры.";
-  }
-}
-
 function formatTimer(secondsLeft: number): string {
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
@@ -1445,6 +1670,54 @@ function formatTimer(secondsLeft: number): string {
     2,
     "0"
   )}`;
+}
+
+function getWinner(players: Player[]): "mafia" | "civilians" | null {
+  const alivePlayers = players.filter((player) => player.is_alive);
+  const mafiaAlive = alivePlayers.filter(
+    (player) => player.role === "mafia"
+  ).length;
+  const civiliansAlive = alivePlayers.length - mafiaAlive;
+
+  if (mafiaAlive === 0) {
+    return "civilians";
+  }
+
+  if (mafiaAlive >= civiliansAlive) {
+    return "mafia";
+  }
+
+  return null;
+}
+
+function computeFinalScore(
+  player: Player,
+  winner: "mafia" | "civilians" | null
+): number {
+  const belongsToWinner =
+    (winner === "mafia" && player.role === "mafia") ||
+    (winner === "civilians" && player.role !== "mafia");
+
+  return (
+    player.score +
+    (belongsToWinner ? 5 : 0) +
+    (player.is_alive ? 2 : 0) +
+    (player.is_host ? 1 : 0)
+  );
+}
+
+function getRunoffCandidateIds(
+  events: GameEvent[],
+  roundNumber: number
+): string[] {
+  const runoffEvents = events.filter(
+    (event) =>
+      event.round_number === roundNumber && event.type === "runoff_candidate"
+  );
+
+  return runoffEvents
+    .map((event) => event.target_player_id)
+    .filter((playerId): playerId is string => Boolean(playerId));
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {

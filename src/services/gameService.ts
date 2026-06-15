@@ -115,3 +115,18 @@ export async function getDoctorSelfHealCount(
 
   return data.length;
 }
+
+export async function getGameEvents(roomId: string): Promise<GameEvent[]> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("game_events")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error("Не удалось получить события игры");
+  }
+
+  return data satisfies GameEvent[];
+}
