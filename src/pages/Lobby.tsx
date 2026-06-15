@@ -8,6 +8,10 @@ import {
   joinRoom,
   normalizeRoomCode,
 } from "../services/roomService";
+import {
+  getSupabaseConfigError,
+  isSupabaseConfigured,
+} from "../services/supabaseClient";
 import { Button } from "../shared/ui/Button";
 import { RoomSettings } from "../types/game";
 
@@ -36,6 +40,7 @@ export const Lobby: React.FC<Props> = ({ onOpenRoom }) => {
 
   const cleanName = playerName.trim();
   const cleanJoinCode = normalizeRoomCode(joinCode);
+  const supabaseConfigError = getSupabaseConfigError();
 
   async function handleCreateRoom() {
     if (!cleanName) {
@@ -123,7 +128,7 @@ export const Lobby: React.FC<Props> = ({ onOpenRoom }) => {
               <Button
                 variant="primary"
                 className="mt-4 h-14 w-full text-base"
-                disabled={isCreatingRoom}
+                disabled={isCreatingRoom || !isSupabaseConfigured()}
                 onClick={handleCreateRoom}
               >
                 {isCreatingRoom ? "Создание..." : "Создать комнату"}
@@ -140,7 +145,10 @@ export const Lobby: React.FC<Props> = ({ onOpenRoom }) => {
                   placeholder="483921"
                   className="h-14 min-w-0 rounded-lg border border-zinc-200 bg-white px-4 font-mono text-lg font-bold text-zinc-950 outline-none transition focus:border-zinc-950"
                 />
-                <Button disabled={isJoiningRoom} onClick={handleJoinRoom}>
+                <Button
+                  disabled={isJoiningRoom || !isSupabaseConfigured()}
+                  onClick={handleJoinRoom}
+                >
                   {isJoiningRoom ? "Вход..." : "Войти"}
                 </Button>
               </div>
@@ -148,6 +156,14 @@ export const Lobby: React.FC<Props> = ({ onOpenRoom }) => {
               {errorMessage ? (
                 <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
                   {errorMessage}
+                </p>
+              ) : null}
+
+              {supabaseConfigError ? (
+                <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                  {supabaseConfigError}. Для GitHub Pages добавьте
+                  `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY` в Secrets или
+                  Variables репозитория.
                 </p>
               ) : null}
             </div>

@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient";
+import { getSupabaseClient } from "./supabaseClient";
 import type { GamePhase, Player, Room, RoomSettings } from "../types/database";
 
 const MAX_CODE_ATTEMPTS = 20;
@@ -12,6 +12,7 @@ export async function createRoom(
   settings: RoomSettings
 ): Promise<{ room: Room; host: Player }> {
   const cleanHostName = hostName.trim();
+  const supabase = getSupabaseClient();
 
   if (!cleanHostName) {
     throw new Error("Введите имя");
@@ -71,6 +72,7 @@ export async function joinRoom(
 ): Promise<{ room: Room; player: Player }> {
   const normalizedCode = normalizeRoomCode(code);
   const cleanPlayerName = playerName.trim();
+  const supabase = getSupabaseClient();
 
   if (!cleanPlayerName) {
     throw new Error("Введите имя");
@@ -108,6 +110,7 @@ export async function joinRoom(
 
 export async function getRoomByCode(code: string): Promise<Room | null> {
   const normalizedCode = normalizeRoomCode(code);
+  const supabase = getSupabaseClient();
 
   if (!normalizedCode) {
     return null;
@@ -134,6 +137,7 @@ export async function updateRoomPhase(
   roomId: string,
   phase: GamePhase
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   const status =
     phase === "lobby" ? "lobby" : phase === "game_over" ? "finished" : "active";
   const { error } = await supabase
@@ -153,6 +157,7 @@ export async function updateRoomSettings(
   roomId: string,
   settings: RoomSettings
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("rooms")
     .update({
@@ -170,6 +175,7 @@ export function normalizeRoomCode(value: string): string {
 }
 
 async function generateUniqueRoomCode(): Promise<string> {
+  const supabase = getSupabaseClient();
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt += 1) {
     const candidate = generateRoomCode();
     const { data, error } = await supabase

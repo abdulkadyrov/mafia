@@ -1,7 +1,8 @@
-import { supabase } from "./supabaseClient";
+import { getSupabaseClient } from "./supabaseClient";
 import type { Player, PlayerRole } from "../types/database";
 
 export async function getPlayers(roomId: string): Promise<Player[]> {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("players")
     .select("*")
@@ -19,6 +20,7 @@ export async function updatePlayerRole(
   playerId: string,
   role: PlayerRole
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("players")
     .update({
@@ -32,6 +34,7 @@ export async function updatePlayerRole(
 }
 
 export async function killPlayer(playerId: string): Promise<void> {
+  const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("players")
     .update({
@@ -48,6 +51,7 @@ export async function updatePlayerScore(
   playerId: string,
   score: number
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("players")
     .update({

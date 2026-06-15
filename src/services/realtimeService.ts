@@ -2,7 +2,7 @@ import type {
   RealtimeChannel,
   RealtimePostgresChangesPayload,
 } from "@supabase/supabase-js";
-import { supabase } from "./supabaseClient";
+import { getSupabaseClient } from "./supabaseClient";
 import type {
   GameEvent,
   NightAction,
@@ -24,6 +24,7 @@ function subscribeToTable<T extends Record<string, unknown>>(
   filter: string,
   callback: (payload: RealtimePostgresChangesPayload<T>) => void
 ): RealtimeChannel {
+  const supabase = getSupabaseClient();
   const channel = supabase.channel(channelName);
 
   channel.on(
@@ -103,5 +104,6 @@ export function subscribeToVotes(
 }
 
 export function unsubscribe(channel: RealtimeChannel): void {
+  const supabase = getSupabaseClient();
   void supabase.removeChannel(channel);
 }

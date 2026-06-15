@@ -1,10 +1,11 @@
-import { supabase } from "./supabaseClient";
+import { getSupabaseClient } from "./supabaseClient";
 import type { GameEvent, NightAction, Vote } from "../types/database";
 
 export async function addGameEvent(
   roomId: string,
   event: Omit<GameEvent, "id" | "room_id" | "created_at">
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   const { error } = await supabase.from("game_events").insert({
     room_id: roomId,
     ...event,
@@ -19,6 +20,7 @@ export async function addNightAction(
   roomId: string,
   action: Omit<NightAction, "id" | "room_id" | "created_at">
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   const { error } = await supabase.from("night_actions").upsert(
     {
       room_id: roomId,
@@ -38,6 +40,7 @@ export async function addVote(
   roomId: string,
   vote: Omit<Vote, "id" | "room_id" | "created_at">
 ): Promise<void> {
+  const supabase = getSupabaseClient();
   const { error } = await supabase.from("votes").upsert(
     {
       room_id: roomId,
@@ -57,6 +60,7 @@ export async function getNightActions(
   roomId: string,
   roundNumber: number
 ): Promise<NightAction[]> {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("night_actions")
     .select("*")
@@ -76,6 +80,7 @@ export async function getVotes(
   roundNumber: number,
   voteType: string
 ): Promise<Vote[]> {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("votes")
     .select("*")
