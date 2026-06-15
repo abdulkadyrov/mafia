@@ -1,6 +1,37 @@
 import { getSupabaseClient } from "./supabaseClient";
 import type { Player, PlayerRole } from "../types/database";
 
+export async function createPlayerInRoom(
+  roomId: string,
+  name: string,
+  options?: {
+    isHost?: boolean;
+  }
+): Promise<Player> {
+  const supabase = getSupabaseClient();
+  const cleanName = name.trim();
+
+  if (!cleanName) {
+    throw new Error("Не удалось создать бота");
+  }
+
+  const { data, error } = await supabase
+    .from("players")
+    .insert({
+      room_id: roomId,
+      name: cleanName,
+      is_host: Boolean(options?.isHost),
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new Error("Не удалось создать бота");
+  }
+
+  return data satisfies Player;
+}
+
 export async function getPlayers(roomId: string): Promise<Player[]> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase

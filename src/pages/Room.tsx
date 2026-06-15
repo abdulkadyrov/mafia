@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { samplePlayerNames } from "../game/defaults";
 import { RoomSettingsForm } from "../features/room-settings/RoomSettingsForm";
 import { useCountdown } from "../hooks/useCountdown";
 import {
@@ -12,6 +13,7 @@ import {
   getVotes,
 } from "../services/gameService";
 import {
+  createPlayerInRoom,
   getPlayers,
   killPlayer,
   updatePlayerRole,
@@ -61,6 +63,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isStartingGame, setIsStartingGame] = React.useState(false);
   const [isSavingSettings, setIsSavingSettings] = React.useState(false);
+  const [isAddingBots, setIsAddingBots] = React.useState(false);
   const [isSubmittingAction, setIsSubmittingAction] = React.useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = React.useState<string | null>(
     null
@@ -277,6 +280,62 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       );
     } finally {
       setIsSavingSettings(false);
+    }
+  }
+
+  async function handleAddBots(mode: "one" | "fill") {
+    if (!room || !isHost || room.phase !== "lobby") {
+      return;
+    }
+
+    setIsAddingBots(true);
+    setErrorMessage("");
+    setActionMessage("");
+
+    try {
+      const existingNames = new Set(
+        players.map((player) => player.name.toLowerCase())
+      );
+      const freeSlots = Math.max(0, room.settings.playerLimit - players.length);
+      const availableNames = samplePlayerNames.filter(
+        (name) => !existingNames.has(name.toLowerCase())
+      );
+      const botsToCreate =
+        mode === "one"
+          ? Math.min(1, freeSlots, availableNames.length)
+          : Math.min(freeSlots, availableNames.length);
+
+      if (botsToCreate <= 0) {
+        throw new Error("Нет свободных мест для ботов");
+      }
+
+      const namesToCreate = availableNames.slice(0, botsToCreate);
+
+      await Promise.all(
+        namesToCreate.map((name) => createPlayerInRoom(room.id, name))
+      );
+
+      await addGameEvent(room.id, {
+        round_number: 0,
+        phase: "lobby",
+        type: "bots_added",
+        message:
+          botsToCreate === 1
+            ? `Добавлен бот ${namesToCreate[0]}.`
+            : `Добавлены боты: ${namesToCreate.join(", ")}.`,
+        visibility: "public",
+        target_player_id: null,
+      });
+
+      setActionMessage(
+        botsToCreate === 1
+          ? `Бот ${namesToCreate[0]} добавлен.`
+          : `Добавлено ботов: ${namesToCreate.length}.`
+      );
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Не удалось добавить ботов"));
+    } finally {
+      setIsAddingBots(false);
     }
   }
 
@@ -610,7 +669,14 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
                 <SettingsPanel
                   settings={room.settings as RoomSettings}
                   isSavingSettings={isSavingSettings}
+                  isAddingBots={isAddingBots}
                   onChange={handleSettingsChange}
+                  onAddBot={() => {
+                    void handleAddBots("one");
+                  }}
+                  onFillBots={() => {
+                    void handleAddBots("fill");
+                  }}
                 />
               ) : (
                 <WaitingPanel />
@@ -920,11 +986,17 @@ function PlayersPanel({
 function SettingsPanel({
   settings,
   isSavingSettings,
+  isAddingBots,
   onChange,
+  onAddBot,
+  onFillBots,
 }: {
   settings: RoomSettings;
   isSavingSettings: boolean;
+  isAddingBots: boolean;
   onChange: (settings: RoomSettings) => void;
+  onAddBot: () => void;
+  onFillBots: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
@@ -936,8 +1008,30 @@ function SettingsPanel({
           <h2 className="mt-2 text-2xl font-black">Параметры комнаты</h2>
         </div>
         <div className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-bold text-zinc-600">
-          {isSavingSettings ? "Сохранение..." : "Только хост"}
+          {isSavingSettings
+            ? "Сохранение..."
+            : isAddingBots
+            ? "Добавляем ботов..."
+            : "Только хост"}
         </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          className="min-h-10 px-3 py-2"
+          disabled={isAddingBots}
+          onClick={onAddBot}
+        >
+          + Бот
+        </Button>
+        <Button
+          className="min-h-10 px-3 py-2"
+          variant="ghost"
+          disabled={isAddingBots}
+          onClick={onFillBots}
+        >
+          Заполнить ботами
+        </Button>
       </div>
 
       <div className="mt-4 max-h-[35vh] overflow-auto pr-1">
