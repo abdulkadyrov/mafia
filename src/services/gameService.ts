@@ -95,3 +95,23 @@ export async function getVotes(
 
   return data satisfies Vote[];
 }
+
+export async function getDoctorSelfHealCount(
+  roomId: string,
+  playerId: string
+): Promise<number> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("night_actions")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("actor_player_id", playerId)
+    .eq("target_player_id", playerId)
+    .eq("action_type", "doctorHeal");
+
+  if (error) {
+    throw new Error("Не удалось получить историю лечения");
+  }
+
+  return data.length;
+}
