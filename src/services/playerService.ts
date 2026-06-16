@@ -108,3 +108,19 @@ export async function updatePlayerScore(
     throw new Error("Не удалось обновить счёт игрока");
   }
 }
+
+export async function resetPlayersForNewGame(roomId: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("players")
+    .update({
+      is_alive: true,
+      role: "unassigned",
+      score: 0,
+    })
+    .eq("room_id", roomId);
+
+  if (error) {
+    throw new Error("Не удалось подготовить игроков к новой игре");
+  }
+}

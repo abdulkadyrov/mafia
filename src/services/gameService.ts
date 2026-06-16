@@ -130,3 +130,16 @@ export async function getGameEvents(roomId: string): Promise<GameEvent[]> {
 
   return data satisfies GameEvent[];
 }
+
+export async function clearRoomGameData(roomId: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  const [eventsResult, nightActionsResult, votesResult] = await Promise.all([
+    supabase.from("game_events").delete().eq("room_id", roomId),
+    supabase.from("night_actions").delete().eq("room_id", roomId),
+    supabase.from("votes").delete().eq("room_id", roomId),
+  ]);
+
+  if (eventsResult.error || nightActionsResult.error || votesResult.error) {
+    throw new Error("Не удалось очистить данные прошлой партии");
+  }
+}

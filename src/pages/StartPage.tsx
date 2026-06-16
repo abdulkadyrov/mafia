@@ -5,9 +5,7 @@ import { routes } from "../core/config/routes";
 import { Card } from "../core/ui/Card";
 import { Button } from "../core/ui/Button";
 import { Input } from "../core/ui/Input";
-import { useLocalStorage } from "../hooks/useLocalStorage";
 import { defaultRoomSettings } from "../game/defaults";
-import { RoomSettingsForm } from "../features/room-settings/RoomSettingsForm";
 import {
   createPlatformRoom,
   joinPlatformRoom,
@@ -18,7 +16,6 @@ import {
   isSupabaseConfigured,
 } from "../core/supabase/client";
 import { persistSession } from "../utils/storage";
-import type { RoomSettings } from "../types/game";
 import { FloatingBackButton } from "../core/layout/FloatingBackButton";
 import { gameRegistry } from "../core/games/gameRegistry";
 
@@ -30,14 +27,7 @@ export function StartPage({
   targetGameId?: string;
 }) {
   const defaultPlayerName = "Абдулкадыров";
-  const [settings, setSettings] = useLocalStorage<RoomSettings>(
-    "mafia-room-settings",
-    defaultRoomSettings
-  );
-  const [playerName, setPlayerName] = useLocalStorage(
-    "mafia-player-name",
-    defaultPlayerName
-  );
+  const [playerName, setPlayerName] = React.useState(defaultPlayerName);
   const [joinCode, setJoinCode] = React.useState("");
   const [errorMessage, setErrorMessage] = React.useState("");
   const [isCreating, setIsCreating] = React.useState(false);
@@ -57,7 +47,10 @@ export function StartPage({
     setErrorMessage("");
 
     try {
-      const { room, host } = await createPlatformRoom(cleanName, settings);
+      const { room, host } = await createPlatformRoom(
+        cleanName,
+        defaultRoomSettings
+      );
       persistSession({
         roomId: room.id,
         roomCode: room.code,
@@ -119,7 +112,7 @@ export function StartPage({
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#16324f_0%,#07111f_40%,#020617_100%)] px-4 py-5 text-white">
-      <div className="mx-auto grid min-h-[calc(100dvh-2.5rem)] max-w-7xl gap-5 lg:grid-cols-[0.92fr_1.08fr]">
+      <div className="mx-auto grid min-h-[calc(100dvh-2.5rem)] max-w-3xl gap-5">
         <motion.section
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
@@ -198,15 +191,6 @@ export function StartPage({
             ) : null}
           </Card>
         </motion.section>
-
-        <Card className="overflow-auto">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">
-            Стартовые настройки комнаты
-          </p>
-          <div className="mt-4">
-            <RoomSettingsForm settings={settings} onChange={setSettings} />
-          </div>
-        </Card>
       </div>
       {selectedGame ? (
         <FloatingBackButton onBack={() => navigate(routes.gamesHub)} />

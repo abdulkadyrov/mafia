@@ -8,6 +8,7 @@ import {
   addGameEvent,
   addNightAction,
   addVote,
+  clearRoomGameData,
   getDoctorSelfHealCount,
   getGameEvents,
   getNightActions,
@@ -17,6 +18,7 @@ import {
   createPlayerInRoom,
   getPlayers,
   killPlayer,
+  resetPlayersForNewGame,
   updatePlayerRole,
 } from "../services/playerService";
 import {
@@ -93,6 +95,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     string | null
   >(null);
   const [isPlayersExpanded, setIsPlayersExpanded] = React.useState(true);
+  const [isHostMenuOpen, setIsHostMenuOpen] = React.useState(false);
   const lastSeenIncomingChatIdRef = React.useRef<string | null>(null);
   const hasInitializedChatRef = React.useRef(false);
   const normalizedRoomCode = React.useMemo(
@@ -215,7 +218,11 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     players.find((player) => player.id === localPlayerId) ?? null;
   const isHost =
     Boolean(selfPlayer?.is_host) || room?.host_player_id === localPlayerId;
-  const phaseEndsAt = room ? getPhaseEndsAt(room) : undefined;
+  const currentSessionEvents = React.useMemo(
+    () => getCurrentSessionEvents(gameEvents),
+    [gameEvents]
+  );
+  const phaseEndsAt = room ? getPhaseEndsAt(room, currentSessionEvents) : undefined;
   const secondsLeft = useCountdown(phaseEndsAt);
   const orderedPlayers = React.useMemo(
     () => orderPlayers(players, localPlayerId),
@@ -239,20 +246,35 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   );
   const selfVote = votes.find((vote) => vote.voter_player_id === localPlayerId);
   const runoffCandidateIds = React.useMemo(
-    () => getRunoffCandidateIds(gameEvents, room?.round_number ?? 0),
-    [gameEvents, room?.round_number]
+    () => getRunoffCandidateIds(currentSessionEvents, room?.round_number ?? 0),
+    [currentSessionEvents, room?.round_number]
   );
   const winner =
-    room?.phase === "game_over" ? getGameOutcome(players, gameEvents) : null;
+    room?.phase === "game_over" ? getGameOutcome(players, currentSessionEvents) : null;
   const { playMusic, stopMusic } = useAudioController();
   const chatMessages = React.useMemo(
     () =>
-      gameEvents
+      currentSessionEvents
         .filter((event) => event.type === "chat_message")
         .map(parseChatMessageEvent)
         .filter((message): message is ChatMessage => Boolean(message)),
-    [gameEvents]
+    [currentSessionEvents]
   );
+  const pauseState = React.useMemo(
+    () =>
+      room
+        ? getPauseStateForRound(
+            currentSessionEvents,
+            room.phase,
+            room.round_number
+          )
+        : { isPaused: false, remainingSeconds: null },
+    [currentSessionEvents, room]
+  );
+  const displaySecondsLeft =
+    pauseState.isPaused && typeof pauseState.remainingSeconds === "number"
+      ? pauseState.remainingSeconds
+      : secondsLeft;
 
   React.useEffect(() => {
     const latestIncomingMessage = [...chatMessages]
@@ -631,7 +653,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   }
 
   async function handleAdvancePhase() {
-    if (!room || !isHost) {
+    if (!room || !isHost || pauseState.isPaused) {
       return;
     }
 
@@ -737,6 +759,82 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     } catch (error) {
       setErrorMessage(getErrorMessage(error, "Не удалось завершить игру"));
     }
+  }
+
+  async function handleRestartGame() {
+    if (!room || !isHost) {
+      return;
+    }
+
+    setErrorMessage("");
+    setActionMessage("");
+
+    try {
+      await clearRoomGameData(room.id);
+      await resetPlayersForNewGame(room.id);
+      await updateRoomPhase(room.id, "lobby", { roundNumber: 0 });
+      setSelectedPlayerId(null);
+      setPendingVoteTargetId(null);
+      setIsChatOpen(false);
+      setUnreadChatCount(0);
+      setChatDraft("");
+      setActionMessage("Комната готова к новой партии.");
+      setIsHostMenuOpen(false);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Не удалось начать новую партию"));
+    }
+  }
+
+  async function handleTogglePause() {
+    if (
+      !room ||
+      !isHost ||
+      room.phase === "lobby" ||
+      room.phase === "game_over"
+    ) {
+      return;
+    }
+
+    setErrorMessage("");
+
+    try {
+      if (pauseState.isPaused) {
+        await addGameEvent(room.id, {
+          round_number: room.round_number,
+          phase: room.phase,
+          type: "phase_resumed",
+          message: JSON.stringify({
+            label: "Игра продолжена.",
+            remainingSeconds: pauseState.remainingSeconds ?? 0,
+          }),
+          visibility: "public",
+          target_player_id: null,
+        });
+        setActionMessage("Пауза снята.");
+      } else {
+        await addGameEvent(room.id, {
+          round_number: room.round_number,
+          phase: room.phase,
+          type: "phase_paused",
+          message: JSON.stringify({
+            label: "Игра поставлена на паузу.",
+            remainingSeconds: displaySecondsLeft,
+          }),
+          visibility: "public",
+          target_player_id: null,
+        });
+        setActionMessage("Пауза включена.");
+      }
+
+      setIsHostMenuOpen(false);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Не удалось переключить паузу"));
+    }
+  }
+
+  function handleBackToRoomLobby() {
+    setIsHostMenuOpen(false);
+    onLeave();
   }
 
   async function handleSendChatMessage() {
@@ -849,9 +947,51 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
                 {isStartingGame ? "Запуск..." : "Начать игру"}
               </Button>
             ) : null}
-            <Button variant="ghost" onClick={onLeave}>
-              Выйти
-            </Button>
+            {isHost ? (
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  onClick={() => setIsHostMenuOpen((current) => !current)}
+                >
+                  ☰
+                </Button>
+                {isHostMenuOpen ? (
+                  <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-64 rounded-2xl border border-zinc-200 bg-white p-2 text-zinc-950 shadow-[0_18px_70px_rgba(15,23,42,0.14)]">
+                    {room.phase !== "lobby" && room.phase !== "game_over" ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleTogglePause();
+                        }}
+                        className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold transition hover:bg-zinc-100"
+                      >
+                        {pauseState.isPaused ? "Продолжить" : "Пауза"}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleRestartGame();
+                      }}
+                      className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold transition hover:bg-zinc-100"
+                    >
+                      Сыграть заново
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBackToRoomLobby}
+                      className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold transition hover:bg-zinc-100"
+                    >
+                      Выйти в комнату
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <Button variant="ghost" onClick={handleBackToRoomLobby}>
+                Выйти
+              </Button>
+            )}
           </div>
         </header>
 
@@ -866,8 +1006,13 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
               {getPhaseEmoji(room.phase)} {formatPhase(room.phase)}
             </p>
             <p className="font-mono text-5xl font-black tracking-[0.24em] sm:text-6xl">
-              {formatTimer(secondsLeft)}
+              {formatTimer(displaySecondsLeft)}
             </p>
+            {pauseState.isPaused ? (
+              <p className="rounded-full bg-amber-400/15 px-4 py-1 text-sm font-black uppercase tracking-[0.18em] text-amber-300">
+                Пауза
+              </p>
+            ) : null}
             {selfPlayer ? (
               <p
                 className={[
@@ -883,35 +1028,35 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
           </section>
         ) : null}
 
-        <section className="grid min-h-0 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="min-h-0">
-            <PlayersPanel
-              room={room}
-              players={orderedPlayers}
-              localPlayerId={localPlayerId}
-              isHost={isHost}
-              isExpanded={isPlayersExpanded}
-              onToggle={() => setIsPlayersExpanded((current) => !current)}
-              onSelectPlayer={setSelectedPlayerId}
-              selectedPlayerId={selectedPlayerId}
-              selfPlayer={selfPlayer}
-              onManualRoleAssign={handleManualRoleAssign}
-              isSubmittingAction={isSubmittingAction}
-              onRoleAction={handleRoleAction}
-              onSetPendingVoteTarget={setPendingVoteTargetId}
-              pendingVoteTargetId={pendingVoteTargetId}
-              onSubmitVote={handleSubmitVote}
-              selfVote={selfVote}
-              currentVotesByTarget={currentVotesByTarget}
-              runoffCandidateIds={runoffCandidateIds}
-              actionMessage={actionMessage}
-              errorMessage={errorMessage}
-            />
-          </div>
+        {room.phase === "lobby" ? (
+          <section className="grid min-h-0 gap-3 lg:grid-cols-[1.08fr_0.92fr]">
+            <div className="min-h-0">
+              <PlayersPanel
+                room={room}
+                players={orderedPlayers}
+                localPlayerId={localPlayerId}
+                isHost={isHost}
+                isExpanded={isPlayersExpanded}
+                onToggle={() => setIsPlayersExpanded((current) => !current)}
+                onSelectPlayer={setSelectedPlayerId}
+                selectedPlayerId={selectedPlayerId}
+                selfPlayer={selfPlayer}
+                onManualRoleAssign={handleManualRoleAssign}
+                isSubmittingAction={isSubmittingAction}
+                onRoleAction={handleRoleAction}
+                onSetPendingVoteTarget={setPendingVoteTargetId}
+                pendingVoteTargetId={pendingVoteTargetId}
+                onSubmitVote={handleSubmitVote}
+                selfVote={selfVote}
+                currentVotesByTarget={currentVotesByTarget}
+                runoffCandidateIds={runoffCandidateIds}
+                actionMessage={actionMessage}
+                errorMessage={errorMessage}
+              />
+            </div>
 
-          <div className="grid min-h-0 grid-rows-[auto_1fr] gap-3">
-            {room.phase === "lobby" ? (
-              isHost ? (
+            <div className="min-h-0">
+              {isHost ? (
                 <SettingsPanel
                   settings={room.settings as RoomSettings}
                   isSavingSettings={isSavingSettings}
@@ -926,29 +1071,68 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
                 />
               ) : (
                 <WaitingPanel />
-              )
-            ) : room.phase === "game_over" ? (
-              <FinalPanel players={players} winner={winner} />
-            ) : (
-              <HostControls
-                room={room}
-                isHost={isHost}
-                onAdvancePhase={() => {
-                  void handleAdvancePhase();
-                }}
-                onEndGame={() => {
-                  void handleEndGame();
-                }}
-              />
-            )}
+              )}
+            </div>
+          </section>
+        ) : room.phase === "game_over" ? (
+          <FinalPanel
+            players={players}
+            winner={winner}
+            isHost={isHost}
+            onRestart={() => {
+              void handleRestartGame();
+            }}
+          />
+        ) : (
+          <section className="grid min-h-0 grid-rows-[1fr_auto] gap-3">
+            <div className="grid min-h-0 gap-3 lg:grid-cols-2">
+              <div className="min-h-0">
+                <PlayersPanel
+                  room={room}
+                  players={orderedPlayers}
+                  localPlayerId={localPlayerId}
+                  isHost={isHost}
+                  isExpanded={isPlayersExpanded}
+                  onToggle={() => setIsPlayersExpanded((current) => !current)}
+                  onSelectPlayer={setSelectedPlayerId}
+                  selectedPlayerId={selectedPlayerId}
+                  selfPlayer={selfPlayer}
+                  onManualRoleAssign={handleManualRoleAssign}
+                  isSubmittingAction={isSubmittingAction}
+                  onRoleAction={handleRoleAction}
+                  onSetPendingVoteTarget={setPendingVoteTargetId}
+                  pendingVoteTargetId={pendingVoteTargetId}
+                  onSubmitVote={handleSubmitVote}
+                  selfVote={selfVote}
+                  currentVotesByTarget={currentVotesByTarget}
+                  runoffCandidateIds={runoffCandidateIds}
+                  actionMessage={actionMessage}
+                  errorMessage={errorMessage}
+                />
+              </div>
 
-            <EventsPanel
-              phase={room.phase}
-              events={gameEvents}
-              actionMessage={actionMessage}
+              <div className="min-h-0">
+                <EventsPanel
+                  phase={room.phase}
+                  events={currentSessionEvents}
+                  actionMessage={actionMessage}
+                />
+              </div>
+            </div>
+
+            <HostControls
+              room={room}
+              isHost={isHost}
+              isPaused={pauseState.isPaused}
+              onAdvancePhase={() => {
+                void handleAdvancePhase();
+              }}
+              onEndGame={() => {
+                void handleEndGame();
+              }}
             />
-          </div>
-        </section>
+          </section>
+        )}
       </div>
 
       <FloatingChat
@@ -1335,7 +1519,7 @@ function SettingsPanel({
   onFillBots: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
+    <div className="h-full rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
@@ -1379,7 +1563,7 @@ function SettingsPanel({
 
 function WaitingPanel() {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
+    <div className="h-full rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
         Ожидание
       </p>
@@ -1394,11 +1578,13 @@ function WaitingPanel() {
 function HostControls({
   room,
   isHost,
+  isPaused,
   onAdvancePhase,
   onEndGame,
 }: {
   room: RoomRecord;
   isHost: boolean;
+  isPaused: boolean;
   onAdvancePhase: () => void;
   onEndGame: () => void;
 }) {
@@ -1463,13 +1649,23 @@ function HostControls({
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button onClick={onAdvancePhase}>
+        <Button disabled={isPaused} onClick={onAdvancePhase}>
           {getAdvanceButtonLabel(room.phase)}
         </Button>
         <Button variant="ghost" onClick={onEndGame}>
           Завершить игру
         </Button>
       </div>
+      {isPaused ? (
+        <p
+          className={[
+            "mt-3 text-sm font-semibold",
+            darkMode ? "text-amber-200" : "text-amber-700",
+          ].join(" ")}
+        >
+          Игра на паузе. Продолжить можно через меню хоста.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1486,7 +1682,7 @@ function EventsPanel({
   const darkMode = phase === "night";
   const visibleEvents = events
     .filter((event) => event.type !== "chat_message")
-    .slice(-14)
+    .slice(-80)
     .reverse();
 
   return (
@@ -1540,11 +1736,11 @@ function EventsPanel({
               className={[
                 "max-w-[92%] rounded-2xl px-4 py-2 text-xs font-semibold",
                 darkMode
-                  ? "bg-white/10 text-white"
-                  : "bg-zinc-100 text-zinc-800",
+                ? "bg-white/10 text-white"
+                : "bg-zinc-100 text-zinc-800",
               ].join(" ")}
             >
-              {event.message}
+              {formatEventMessage(event)}
             </article>
           ))
         )}
@@ -1717,9 +1913,13 @@ function FloatingChat({
 function FinalPanel({
   players,
   winner,
+  isHost,
+  onRestart,
 }: {
   players: Player[];
   winner: GameOutcome | null;
+  isHost: boolean;
+  onRestart: () => void;
 }) {
   const rankedPlayers = [...players]
     .map((player) => ({
@@ -1727,39 +1927,93 @@ function FinalPanel({
       finalScore: computeFinalScore(player, winner),
     }))
     .sort((left, right) => right.finalScore - left.finalScore);
+  const podiumPlayers = rankedPlayers.slice(0, 3);
+  const remainingPlayers = rankedPlayers.slice(3);
 
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_18px_70px_rgba(15,23,42,0.08)]">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+      <p className="text-center text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
         Финал
       </p>
-      <h2 className="mt-2 text-2xl font-black">
+      <h2 className="mt-2 text-center text-3xl font-black">
         {getGameOverMessage(winner)}
       </h2>
 
-      <div className="mt-4 space-y-2">
-        {rankedPlayers.map((player, index) => (
-          <div
-            key={player.id}
-            className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3"
-          >
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-white text-sm font-black text-zinc-950">
-              {index + 1}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black">{player.name}</p>
-              <p className="text-xs font-semibold text-zinc-500">
-                {formatRole(player.role)} ·{" "}
-                {player.is_alive ? "Выжил" : "Выбыл"}
+      <div className="mt-6 grid gap-4 lg:grid-cols-3 lg:items-end">
+        {[
+          podiumPlayers[1],
+          podiumPlayers[0],
+          podiumPlayers[2],
+        ].map((player, index) => {
+          if (!player) {
+            return (
+              <div
+                key={`empty-${index}`}
+                className="hidden rounded-3xl border border-dashed border-zinc-200 bg-zinc-50/60 lg:block"
+              />
+            );
+          }
+
+          const placement = index === 1 ? 1 : index === 0 ? 2 : 3;
+          const trophy =
+            placement === 1 ? "🏆" : placement === 2 ? "🥈" : "🥉";
+          const tone =
+            placement === 1
+              ? "border-yellow-300 bg-yellow-50 text-yellow-950"
+              : placement === 2
+              ? "border-slate-300 bg-slate-50 text-slate-950"
+              : "border-amber-400/60 bg-amber-50 text-amber-950";
+          const height =
+            placement === 1 ? "lg:min-h-[18rem]" : "lg:min-h-[14rem]";
+
+          return (
+            <div
+              key={player.id}
+              className={[
+                "rounded-3xl border px-5 py-6 shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+                tone,
+                height,
+              ].join(" ")}
+            >
+              <p className="text-center text-4xl">{trophy}</p>
+              <p className="mt-3 text-center text-xs font-black uppercase tracking-[0.18em]">
+                {placement} место
+              </p>
+              <p className="mt-3 text-center text-2xl font-black">{player.name}</p>
+              <p className="mt-2 text-center text-sm font-semibold opacity-75">
+                {formatRole(player.role)} · {player.finalScore} очков
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-lg font-black">{player.finalScore}</p>
-              <p className="text-xs font-semibold text-zinc-500">очков</p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {remainingPlayers.length > 0 ? (
+        <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {remainingPlayers.map((player, index) => (
+            <div
+              key={player.id}
+              className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3"
+            >
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
+                {index + 4} место
+              </p>
+              <p className="mt-2 text-lg font-black text-zinc-950">{player.name}</p>
+              <p className="mt-1 text-sm font-semibold text-zinc-600">
+                {formatRole(player.role)} · {player.finalScore} очков
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {isHost ? (
+        <div className="mt-6 flex justify-center">
+          <Button variant="primary" onClick={onRestart}>
+            Сыграть снова
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2138,19 +2392,48 @@ async function resolveVotingPhase(
   });
 }
 
-function getPhaseEndsAt(room: RoomRecord): number | undefined {
-  const startedAt = new Date(room.updated_at).getTime();
+function getPhaseEndsAt(
+  room: RoomRecord,
+  events: GameEvent[]
+): number | undefined {
+  const pauseState = getPauseStateForRound(events, room.phase, room.round_number);
+
+  if (pauseState.isPaused) {
+    return undefined;
+  }
+
+  const resumeEvent = getLatestPhaseControlEvent(
+    events,
+    room.phase,
+    room.round_number,
+    "phase_resumed"
+  );
+  const resumedRemainingSeconds = resumeEvent
+    ? parsePhaseControlEventMessage(resumeEvent.message)?.remainingSeconds
+    : null;
+  const startedAt = resumeEvent
+    ? new Date(resumeEvent.created_at).getTime()
+    : new Date(room.updated_at).getTime();
 
   if (room.phase === "night") {
-    return startedAt + room.settings.timers.nightSeconds * 1000;
+    return (
+      startedAt +
+      (resumedRemainingSeconds ?? room.settings.timers.nightSeconds) * 1000
+    );
   }
 
   if (room.phase === "day") {
-    return startedAt + room.settings.timers.discussionSeconds * 1000;
+    return (
+      startedAt +
+      (resumedRemainingSeconds ?? room.settings.timers.discussionSeconds) * 1000
+    );
   }
 
   if (room.phase === "voting" || room.phase === "voting_confirmation") {
-    return startedAt + room.settings.timers.votingSeconds * 1000;
+    return (
+      startedAt +
+      (resumedRemainingSeconds ?? room.settings.timers.votingSeconds) * 1000
+    );
   }
 
   return undefined;
@@ -2787,6 +3070,104 @@ function parseChatMessageEvent(event: GameEvent): ChatMessage | null {
   } catch {
     return null;
   }
+}
+
+function parsePhaseControlEventMessage(message: string): {
+  label?: string;
+  remainingSeconds?: number;
+} | null {
+  try {
+    return JSON.parse(message) as {
+      label?: string;
+      remainingSeconds?: number;
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getLatestPhaseControlEvent(
+  events: GameEvent[],
+  phase: RoomRecord["phase"],
+  roundNumber: number,
+  type: "phase_paused" | "phase_resumed"
+): GameEvent | null {
+  return (
+    [...events]
+      .filter(
+        (event) =>
+          event.type === type &&
+          event.phase === phase &&
+          event.round_number === roundNumber
+      )
+      .sort(
+        (left, right) =>
+          new Date(right.created_at).getTime() -
+          new Date(left.created_at).getTime()
+      )[0] ?? null
+  );
+}
+
+function getPauseStateForRound(
+  events: GameEvent[],
+  phase: RoomRecord["phase"],
+  roundNumber: number
+): { isPaused: boolean; remainingSeconds: number | null } {
+  const pausedEvent = getLatestPhaseControlEvent(
+    events,
+    phase,
+    roundNumber,
+    "phase_paused"
+  );
+  const resumedEvent = getLatestPhaseControlEvent(
+    events,
+    phase,
+    roundNumber,
+    "phase_resumed"
+  );
+
+  if (!pausedEvent) {
+    return { isPaused: false, remainingSeconds: null };
+  }
+
+  if (
+    resumedEvent &&
+    new Date(resumedEvent.created_at).getTime() >
+      new Date(pausedEvent.created_at).getTime()
+  ) {
+    return { isPaused: false, remainingSeconds: null };
+  }
+
+  const payload = parsePhaseControlEventMessage(pausedEvent.message);
+  return {
+    isPaused: true,
+    remainingSeconds:
+      typeof payload?.remainingSeconds === "number"
+        ? payload.remainingSeconds
+        : null,
+  };
+}
+
+function formatEventMessage(event: GameEvent): string {
+  if (event.type === "phase_paused" || event.type === "phase_resumed") {
+    return parsePhaseControlEventMessage(event.message)?.label ?? event.message;
+  }
+
+  return event.message;
+}
+
+function getCurrentSessionEvents(events: GameEvent[]): GameEvent[] {
+  const resetIndex = [...events]
+    .map((event, index) => ({ event, index }))
+    .filter(({ event }) => event.type === "game_reset")
+    .map(({ index }) => index)
+    .pop();
+
+  if (typeof resetIndex !== "number") {
+    return events;
+  }
+
+  return events.slice(resetIndex + 1);
 }
 
 function getGameOverMessage(winner: GameOutcome | null): string {
