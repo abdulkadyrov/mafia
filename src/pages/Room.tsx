@@ -59,6 +59,7 @@ const MANUAL_ASSIGNABLE_ROLES: PlayerRole[] = [
 ];
 
 type GameOutcome = "mafia" | "civilians" | "doctor" | "draw";
+type SuspicionMap = Record<string, number>;
 
 export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   const [room, setRoom] = React.useState<RoomRecord | null>(null);
@@ -513,7 +514,16 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
 
     try {
       if (room.phase === "night") {
-        const nightOutcome = await resolveNightPhase(room, players, nightActions);
+        await ensureBotPhaseActions(room, players, gameEvents, votes, nightActions);
+        const latestNightActions = await getNightActions(
+          room.id,
+          room.round_number || 1
+        );
+        const nightOutcome = await resolveNightPhase(
+          room,
+          players,
+          latestNightActions
+        );
 
         if (nightOutcome) {
           await addGameEvent(room.id, {
@@ -542,10 +552,16 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       }
 
       if (room.phase === "voting" || room.phase === "voting_confirmation") {
+        await ensureBotPhaseActions(room, players, gameEvents, votes, nightActions);
+        const latestVotes = await getVotes(
+          room.id,
+          room.round_number || 1,
+          voteType
+        );
         await resolveVotingPhase(
           room,
           players,
-          votes,
+          latestVotes,
           voteType,
           runoffCandidateIds
         );
@@ -1548,6 +1564,83 @@ async function resolveNightPhase(
   return getWinner(resolvedPlayers);
 }
 
+async function ensureBotPhaseActions(
+  room: RoomRecord,
+  players: Player[],
+  gameEvents: GameEvent[],
+  votes: Vote[],
+  nightActions: NightAction[]
+): Promise<void> {
+  const alivePlayers = players.filter((player) => player.is_alive);
+  const botPlayers = alivePlayers.filter(isBotPlayer);
+
+  if (botPlayers.length === 0) {
+    return;
+  }
+
+  if (room.phase === "night") {
+    await Promise.all(
+      botPlayers.map(async (bot) => {
+        const action = await chooseBotNightAction(
+          room,
+          bot,
+          alivePlayers,
+          gameEvents,
+          nightActions
+        );
+
+        if (!action) {
+          return;
+        }
+
+        await addNightAction(room.id, {
+          round_number: room.round_number || 1,
+          actor_player_id: bot.id,
+          target_player_id: action.targetPlayerId,
+          action_type: action.actionType,
+        });
+      })
+    );
+    return;
+  }
+
+  if (room.phase === "voting" || room.phase === "voting_confirmation") {
+    await Promise.all(
+      botPlayers.map(async (bot) => {
+        const alreadyVoted = votes.some(
+          (vote) =>
+            vote.voter_player_id === bot.id &&
+            vote.vote_type ===
+              (room.phase === "voting_confirmation" ? "runoff" : "main")
+        );
+
+        if (alreadyVoted) {
+          return;
+        }
+
+        const targetPlayerId = chooseBotVoteTarget(
+          room,
+          bot,
+          alivePlayers,
+          gameEvents,
+          votes
+        );
+
+        if (!targetPlayerId) {
+          return;
+        }
+
+        await addVote(room.id, {
+          round_number: room.round_number || 1,
+          voter_player_id: bot.id,
+          target_player_id: targetPlayerId,
+          vote_type: room.phase === "voting_confirmation" ? "runoff" : "main",
+        });
+      })
+    );
+  }
+}
+
 async function resolveVotingPhase(
   room: RoomRecord,
   players: Player[],
@@ -1793,6 +1886,263 @@ function canTarget(actor: Player, target: Player): boolean {
   }
 
   return false;
+}
+
+function isBotPlayer(player: Player): boolean {
+  return !player.is_host && samplePlayerNames.includes(player.name);
+}
+
+async function chooseBotNightAction(
+  room: RoomRecord,
+  bot: Player,
+  alivePlayers: Player[],
+  gameEvents: GameEvent[],
+  nightActions: NightAction[]
+): Promise<{
+  actionType: NightAction["action_type"];
+  targetPlayerId: string;
+} | null> {
+  const roundNumber = room.round_number || 1;
+  const suspicion = buildSuspicionMap(alivePlayers, gameEvents, []);
+  const existingActorActions = nightActions.filter(
+    (action) => action.actor_player_id === bot.id && action.round_number === roundNumber
+  );
+
+  if (bot.role === "mafia") {
+    const alreadyActed = existingActorActions.some(
+      (action) => action.action_type === "mafiaKill"
+    );
+    if (alreadyActed) {
+      return null;
+    }
+
+    const target = rankPlayersForMafia(alivePlayers, suspicion).find((player) =>
+      canTarget(bot, player)
+    );
+
+    return target
+      ? {
+          actionType: "mafiaKill",
+          targetPlayerId: target.id,
+        }
+      : null;
+  }
+
+  if (bot.role === "doctor") {
+    const alreadyActed = existingActorActions.some(
+      (action) => action.action_type === "doctorHeal"
+    );
+    if (alreadyActed) {
+      return null;
+    }
+
+    const selfHealCount = await getDoctorSelfHealCount(room.id, bot.id);
+    const target = chooseDoctorTarget(
+      bot,
+      alivePlayers,
+      suspicion,
+      selfHealCount < room.settings.doctorSelfHealsLimit,
+      gameEvents
+    );
+
+    return target
+      ? {
+          actionType: "doctorHeal",
+          targetPlayerId: target.id,
+        }
+      : null;
+  }
+
+  if (bot.role === "inspector") {
+    const hasCheck = existingActorActions.some(
+      (action) => action.action_type === "detectiveCheck"
+    );
+    const hasKill = existingActorActions.some(
+      (action) => action.action_type === "detectiveKill"
+    );
+    if (hasCheck || hasKill) {
+      return null;
+    }
+
+    const rankedTargets = rankPlayersForInspector(alivePlayers, suspicion).filter(
+      (player) => canTarget(bot, player)
+    );
+    const lethalTarget = rankedTargets[0];
+    const shouldShoot =
+      Boolean(lethalTarget) &&
+      suspicion[lethalTarget.id] >= 7 &&
+      alivePlayers.length <= 5;
+
+    if (shouldShoot && lethalTarget) {
+      return {
+        actionType: "detectiveKill",
+        targetPlayerId: lethalTarget.id,
+      };
+    }
+
+    const checkTarget = rankedTargets[0];
+    return checkTarget
+      ? {
+          actionType: "detectiveCheck",
+          targetPlayerId: checkTarget.id,
+        }
+      : null;
+  }
+
+  return null;
+}
+
+function chooseBotVoteTarget(
+  room: RoomRecord,
+  bot: Player,
+  alivePlayers: Player[],
+  gameEvents: GameEvent[],
+  votes: Vote[]
+): string | null {
+  const candidates =
+    room.phase === "voting_confirmation"
+      ? alivePlayers.filter((player) =>
+          getRunoffCandidateIds(gameEvents, room.round_number).includes(player.id)
+        )
+      : alivePlayers.filter((player) => player.id !== bot.id);
+  const suspicion = buildSuspicionMap(alivePlayers, gameEvents, votes);
+
+  if (bot.role === "mafia") {
+    const target = [...candidates]
+      .filter((player) => player.role !== "mafia")
+      .sort((left, right) => {
+        const rightScore =
+          (suspicion[right.id] ?? 0) + (right.role === "inspector" ? 3 : 0);
+        const leftScore =
+          (suspicion[left.id] ?? 0) + (left.role === "inspector" ? 3 : 0);
+        return rightScore - leftScore;
+      })[0];
+    return target?.id ?? null;
+  }
+
+  const target = [...candidates]
+    .filter((player) => player.id !== bot.id)
+    .sort((left, right) => (suspicion[right.id] ?? 0) - (suspicion[left.id] ?? 0))[0];
+
+  return target?.id ?? null;
+}
+
+function buildSuspicionMap(
+  alivePlayers: Player[],
+  gameEvents: GameEvent[],
+  votes: Vote[]
+): SuspicionMap {
+  const suspicion = alivePlayers.reduce<SuspicionMap>((map, player) => {
+    map[player.id] = 0;
+    return map;
+  }, {});
+
+  const aliveIds = new Set(alivePlayers.map((player) => player.id));
+
+  for (const vote of votes) {
+    if (!vote.target_player_id || !aliveIds.has(vote.target_player_id)) {
+      continue;
+    }
+
+    suspicion[vote.target_player_id] =
+      (suspicion[vote.target_player_id] ?? 0) + 1;
+  }
+
+  for (const event of gameEvents) {
+    if (!event.target_player_id || !aliveIds.has(event.target_player_id)) {
+      continue;
+    }
+
+    if (event.type === "runoff_candidate") {
+      suspicion[event.target_player_id] =
+        (suspicion[event.target_player_id] ?? 0) + 2;
+    }
+
+    if (event.type === "night_saved") {
+      suspicion[event.target_player_id] =
+        (suspicion[event.target_player_id] ?? 0) + 2;
+    }
+  }
+
+  const playerOrder = [...alivePlayers].sort(
+    (left, right) =>
+      new Date(left.joined_at).getTime() - new Date(right.joined_at).getTime()
+  );
+
+  playerOrder.forEach((player, index) => {
+    suspicion[player.id] = (suspicion[player.id] ?? 0) + index * 0.15;
+  });
+
+  return suspicion;
+}
+
+function rankPlayersForMafia(
+  alivePlayers: Player[],
+  suspicion: SuspicionMap
+): Player[] {
+  return [...alivePlayers]
+    .filter((player) => player.role !== "mafia")
+    .sort((left, right) => {
+      const rightScore =
+        (suspicion[right.id] ?? 0) +
+        (right.role === "inspector" ? 5 : 0) +
+        (right.role === "doctor" ? 3 : 0);
+      const leftScore =
+        (suspicion[left.id] ?? 0) +
+        (left.role === "inspector" ? 5 : 0) +
+        (left.role === "doctor" ? 3 : 0);
+      return rightScore - leftScore;
+    });
+}
+
+function rankPlayersForInspector(
+  alivePlayers: Player[],
+  suspicion: SuspicionMap
+): Player[] {
+  return [...alivePlayers]
+    .filter((player) => player.role !== "inspector")
+    .sort((left, right) => {
+      const rightScore =
+        (suspicion[right.id] ?? 0) +
+        (right.role === "mafia" ? 1.5 : 0) +
+        (isBotPlayer(right) ? 0.2 : 0);
+      const leftScore =
+        (suspicion[left.id] ?? 0) +
+        (left.role === "mafia" ? 1.5 : 0) +
+        (isBotPlayer(left) ? 0.2 : 0);
+      return rightScore - leftScore;
+    });
+}
+
+function chooseDoctorTarget(
+  bot: Player,
+  alivePlayers: Player[],
+  suspicion: SuspicionMap,
+  canSelfHeal: boolean,
+  gameEvents: GameEvent[]
+): Player | null {
+  const recentlyThreatenedIds = new Set(
+    gameEvents
+      .filter((event) => event.type === "night_saved" && event.target_player_id)
+      .slice(-3)
+      .map((event) => event.target_player_id as string)
+  );
+
+  return [...alivePlayers]
+    .filter((player) => player.id !== bot.id || canSelfHeal)
+    .sort((left, right) => {
+      const rightScore =
+        (recentlyThreatenedIds.has(right.id) ? 5 : 0) +
+        (right.role === "inspector" ? 4 : 0) +
+        (right.role === "doctor" ? 2 : 0) -
+        (suspicion[right.id] ?? 0);
+      const leftScore =
+        (recentlyThreatenedIds.has(left.id) ? 5 : 0) +
+        (left.role === "inspector" ? 4 : 0) +
+        (left.role === "doctor" ? 2 : 0) -
+        (suspicion[left.id] ?? 0);
+      return rightScore - leftScore;
+    })[0] ?? null;
 }
 
 function resolveMafiaTargetId(
