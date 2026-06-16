@@ -15,6 +15,7 @@ import { Card } from "../../core/ui/Card";
 import { updateRoomMeta } from "../../core/room/roomService";
 import { QrCodeCard } from "../../core/qr/QrCodeCard";
 import { routes } from "../../core/config/routes";
+import { getLocalGamePacksByType } from "../../core/packs/localPackLibrary";
 import { clearSession } from "../../utils/storage";
 import { createHashAppPath } from "../../shared/routing/basePath";
 import { AliasHostScreen } from "./AliasHostScreen";
@@ -90,14 +91,20 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
     }
 
     void getGamePacksByType(room.id, "alias").then((records) => {
-      const importedPacks = records.map((record) => ({
+      const roomPacks = records.map((record) => ({
         id: record.id,
+        title: record.title,
+        content: record.content as AliasPack,
+      }));
+      const localPacks = getLocalGamePacksByType("alias").map((record) => ({
+        id: `local-${record.id}`,
         title: record.title,
         content: record.content as AliasPack,
       }));
       setPacks([
         { id: "builtin-alias", title: BUILTIN_PACK.title, content: BUILTIN_PACK },
-        ...importedPacks,
+        ...localPacks,
+        ...roomPacks,
       ]);
     });
   }, [room?.id]);

@@ -21,6 +21,7 @@ import { millionaireSounds } from "./millionaireSounds";
 import type { MillionairePack, MillionaireQuestion, MillionaireState } from "./millionaireTypes";
 import { QrCodeCard } from "../../core/qr/QrCodeCard";
 import { routes } from "../../core/config/routes";
+import { getLocalGamePacksByType } from "../../core/packs/localPackLibrary";
 import { clearSession } from "../../utils/storage";
 import { createHashAppPath } from "../../shared/routing/basePath";
 
@@ -110,14 +111,20 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     }
 
     void getGamePacksByType(room.id, "millionaire").then((records) => {
-      const importedPacks = records.map((record) => ({
+      const roomPacks = records.map((record) => ({
         id: record.id,
+        title: record.title,
+        content: record.content as MillionairePack,
+      }));
+      const localPacks = getLocalGamePacksByType("millionaire").map((record) => ({
+        id: `local-${record.id}`,
         title: record.title,
         content: record.content as MillionairePack,
       }));
       setPacks([
         { id: "builtin-millionaire", title: BUILTIN_PACK.title, content: BUILTIN_PACK },
-        ...importedPacks,
+        ...localPacks,
+        ...roomPacks,
       ]);
     });
   }, [room?.id]);
