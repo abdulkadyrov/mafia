@@ -502,14 +502,16 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
         action_type: actionType,
       });
 
-      await addGameEvent(room.id, {
-        round_number: room.round_number || 1,
-        phase: "night",
-        type: actionType,
-        message: getNightActionEventText(actionType),
-        visibility: "public",
-        target_player_id: null,
-      });
+      if (isPublicNightAction(actionType)) {
+        await addGameEvent(room.id, {
+          round_number: room.round_number || 1,
+          phase: "night",
+          type: actionType,
+          message: getNightActionEventText(actionType),
+          visibility: "public",
+          target_player_id: null,
+        });
+      }
 
       if (actionType === "detectiveCheck") {
         setActionMessage(
@@ -564,6 +566,15 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
         voter_player_id: selfPlayer.id,
         target_player_id: targetPlayer.id,
         vote_type: voteType,
+      });
+
+      await addGameEvent(room.id, {
+        round_number: room.round_number || 1,
+        phase: room.phase,
+        type: room.phase === "voting_confirmation" ? "runoff_vote" : "vote_cast",
+        message: getVoteEventText(selfPlayer.name, targetPlayer.name, room.phase),
+        visibility: "public",
+        target_player_id: targetPlayer.id,
       });
 
       setPendingVoteTargetId(null);
@@ -1885,6 +1896,17 @@ async function ensureBotPhaseActions(
           target_player_id: action.targetPlayerId,
           action_type: action.actionType,
         });
+
+        if (isPublicNightAction(action.actionType)) {
+          await addGameEvent(room.id, {
+            round_number: room.round_number || 1,
+            phase: "night",
+            type: action.actionType,
+            message: getNightActionEventText(action.actionType),
+            visibility: "public",
+            target_player_id: null,
+          });
+        }
       })
     );
     return;
@@ -1922,6 +1944,22 @@ async function ensureBotPhaseActions(
           target_player_id: targetPlayerId,
           vote_type: room.phase === "voting_confirmation" ? "runoff" : "main",
         });
+
+        const targetPlayer = alivePlayers.find(
+          (player) => player.id === targetPlayerId
+        );
+
+        if (targetPlayer) {
+          await addGameEvent(room.id, {
+            round_number: room.round_number || 1,
+            phase: room.phase,
+            type:
+              room.phase === "voting_confirmation" ? "runoff_vote" : "vote_cast",
+            message: getVoteEventText(bot.name, targetPlayer.name, room.phase),
+            visibility: "public",
+            target_player_id: targetPlayer.id,
+          });
+        }
       })
     );
   }
@@ -2505,6 +2543,22 @@ function getNightActionEventText(
     default:
       return "Игрок совершил действие.";
   }
+}
+
+function isPublicNightAction(actionType: NightAction["action_type"]): boolean {
+  return actionType !== "detectiveCheck";
+}
+
+function getVoteEventText(
+  voterName: string,
+  targetName: string,
+  phase: RoomRecord["phase"]
+): string {
+  if (phase === "voting_confirmation") {
+    return `${voterName} выбрал ${targetName} на переголосовании.`;
+  }
+
+  return `${voterName} выбрал ${targetName}.`;
 }
 
 function getActionConfirmation(
