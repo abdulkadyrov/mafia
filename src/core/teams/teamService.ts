@@ -65,13 +65,18 @@ export async function getTeamMembers(roomId: string): Promise<TeamMember[]> {
     throw new Error("Не удалось получить состав команд");
   }
 
-  return (data as Array<TeamMember & { players: { room_id: string } }>).map(
-    ({ team_id, player_id, created_at }) => ({
-      team_id,
-      player_id,
-      created_at,
-    })
-  );
+  const rows = (data ?? []) as Array<{
+    team_id: string;
+    player_id: string;
+    created_at: string;
+    players: Array<{ room_id: string }>;
+  }>;
+
+  return rows.map(({ team_id, player_id, created_at }) => ({
+    team_id,
+    player_id,
+    created_at,
+  }));
 }
 
 export async function assignPlayerToTeam(input: {

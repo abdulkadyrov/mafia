@@ -127,7 +127,7 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     Boolean(currentTeam) &&
     state.phase === "question" &&
     !state.buzzedTeamId &&
-    !state.wrongTeamIds.includes(currentTeam.id);
+    !state.wrongTeamIds.includes(currentTeam?.id ?? "");
 
   React.useEffect(() => {
     if (state.phase === "question" || state.phase === "buzzed") {
