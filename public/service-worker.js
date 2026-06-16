@@ -1,4 +1,4 @@
-const CACHE_NAME = "mafia-shell-v6";
+const CACHE_NAME = "mafia-shell-v7";
 const APP_SHELL = [".", "index.html", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -64,8 +64,7 @@ self.addEventListener("fetch", (event) => {
           });
 
           return networkResponse;
-        })
-        .catch(() => caches.match("index.html"));
+        });
     })
   );
 });
