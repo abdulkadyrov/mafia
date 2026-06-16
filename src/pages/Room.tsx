@@ -1011,27 +1011,27 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
         </header>
 
         {room.phase !== "lobby" ? (
-          <section className="grid place-items-center gap-2 text-center">
+          <section className="grid place-items-center gap-1 text-center">
             <p
               className={[
-                "text-sm font-black uppercase tracking-[0.28em]",
+                "text-xs font-black uppercase tracking-[0.24em]",
                 room.phase === "night" ? "text-white/60" : "text-zinc-500",
               ].join(" ")}
             >
               {getPhaseEmoji(room.phase)} {formatPhase(room.phase)}
             </p>
-            <p className="font-mono text-5xl font-black tracking-[0.24em] sm:text-6xl">
+            <p className="font-mono text-3xl font-black tracking-[0.18em] sm:text-4xl">
               {formatTimer(displaySecondsLeft)}
             </p>
             {pauseState.isPaused ? (
-              <p className="rounded-full bg-amber-400/15 px-4 py-1 text-sm font-black uppercase tracking-[0.18em] text-amber-300">
+              <p className="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-amber-300">
                 Пауза
               </p>
             ) : null}
             {selfPlayer ? (
               <p
                 className={[
-                  "rounded-full px-4 py-1 text-sm font-black uppercase tracking-[0.18em]",
+                  "rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.16em]",
                   room.phase === "night"
                     ? "bg-white/10 text-white"
                     : "bg-zinc-100 text-zinc-700",
@@ -1100,7 +1100,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
           />
         ) : (
           <section className="grid min-h-0 grid-rows-[1fr_auto] gap-3">
-            <div className="grid min-h-0 gap-3 lg:grid-cols-2">
+            <div className="grid min-h-0 gap-3 lg:grid-cols-[0.98fr_1.02fr]">
               <div className="min-h-0">
                 <PlayersPanel
                   room={room}
@@ -1123,6 +1123,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
                   runoffCandidateIds={runoffCandidateIds}
                   actionMessage={actionMessage}
                   errorMessage={errorMessage}
+                  compact
                 />
               </div>
 
@@ -1131,6 +1132,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
                   phase={room.phase}
                   events={currentSessionEvents}
                   actionMessage={actionMessage}
+                  compact
                 />
               </div>
             </div>
@@ -1191,6 +1193,7 @@ function PlayersPanel({
   runoffCandidateIds,
   actionMessage,
   errorMessage,
+  compact = false,
 }: {
   room: RoomRecord;
   players: Player[];
@@ -1215,6 +1218,7 @@ function PlayersPanel({
   runoffCandidateIds: string[];
   actionMessage: string;
   errorMessage: string;
+  compact?: boolean;
 }) {
   const darkMode = room.phase === "night";
   const canActAtNight = Boolean(selfPlayer?.is_alive && room.phase === "night");
@@ -1228,7 +1232,8 @@ function PlayersPanel({
   return (
     <div
       className={[
-        "grid h-full min-h-0 rounded-2xl border p-4 shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+        "grid h-full min-h-0 rounded-2xl border shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+        compact ? "p-3" : "p-4",
         darkMode
           ? "border-white/10 bg-white/5 backdrop-blur"
           : "border-zinc-200 bg-white",
@@ -1244,7 +1249,9 @@ function PlayersPanel({
           >
             Игроки
           </p>
-          <h2 className="mt-1 text-2xl font-black">Список комнаты</h2>
+          <h2 className={compact ? "mt-1 text-lg font-black" : "mt-1 text-2xl font-black"}>
+            Список комнаты
+          </h2>
         </div>
 
         <Button variant="ghost" onClick={onToggle}>
@@ -1279,7 +1286,7 @@ function PlayersPanel({
       ) : null}
 
       {isExpanded ? (
-        <div className="mt-3 min-h-0 space-y-2 overflow-auto pr-1">
+        <div className={compact ? "mt-2 min-h-0 space-y-1.5 overflow-auto pr-1" : "mt-3 min-h-0 space-y-2 overflow-auto pr-1"}>
           {players.map((player, index) => {
             const isSelf = player.id === localPlayerId;
             const isSelected = player.id === selectedPlayerId;
@@ -1296,7 +1303,8 @@ function PlayersPanel({
               <div
                 key={player.id}
                 className={[
-                  "rounded-xl border px-4 py-3 transition",
+                  "rounded-xl border transition",
+                  compact ? "px-3 py-2" : "px-4 py-3",
                   isDead
                     ? "border-red-400/40 bg-red-500/10 opacity-60"
                     : darkMode
@@ -1317,19 +1325,26 @@ function PlayersPanel({
                 <button
                   type="button"
                   onClick={() => onSelectPlayer(player.id)}
-                  className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 text-left"
+                  className={compact
+                    ? "grid w-full grid-cols-[auto_1fr_auto] items-center gap-2 text-left"
+                    : "grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 text-left"}
                 >
-                  <div className="grid h-9 w-9 place-items-center rounded-full bg-white text-sm font-black text-zinc-950">
+                  <div
+                    className={[
+                      "grid place-items-center rounded-full bg-white font-black text-zinc-950",
+                      compact ? "h-7 w-7 text-xs" : "h-9 w-9 text-sm",
+                    ].join(" ")}
+                  >
                     {index + 1}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black">
+                    <p className={compact ? "truncate text-xs font-black" : "truncate text-sm font-black"}>
                       {player.name}
                       {isSelf ? " (Вы)" : ""}
                     </p>
                     <p
                       className={[
-                        "text-xs font-semibold",
+                        compact ? "text-[11px] font-semibold" : "text-xs font-semibold",
                         darkMode ? "text-white/60" : "text-zinc-500",
                       ].join(" ")}
                     >
@@ -1340,7 +1355,9 @@ function PlayersPanel({
                   </div>
                   <div
                     className={[
-                      "rounded-full px-3 py-1 text-xs font-bold",
+                      compact
+                        ? "rounded-full px-2 py-0.5 text-[11px] font-bold"
+                        : "rounded-full px-3 py-1 text-xs font-bold",
                       darkMode
                         ? "bg-white/10 text-white"
                         : "bg-white text-zinc-600",
@@ -1689,10 +1706,12 @@ function EventsPanel({
   phase,
   events,
   actionMessage,
+  compact = false,
 }: {
   phase: RoomRecord["phase"];
   events: GameEvent[];
   actionMessage: string;
+  compact?: boolean;
 }) {
   const darkMode = phase === "night";
   const visibleEvents = events
@@ -1703,7 +1722,8 @@ function EventsPanel({
   return (
     <div
       className={[
-        "grid min-h-0 rounded-2xl border p-4 shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+        "grid min-h-0 rounded-2xl border shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+        compact ? "p-3" : "p-4",
         darkMode
           ? "border-white/10 bg-white/5 backdrop-blur"
           : "border-zinc-200 bg-white",
@@ -1715,17 +1735,21 @@ function EventsPanel({
             "text-xs font-black uppercase tracking-[0.18em]",
             darkMode ? "text-white/60" : "text-zinc-500",
           ].join(" ")}
-        >
-          События
-        </p>
-        <h2 className="mt-1 text-xl font-black">Журнал игры</h2>
+          >
+            События
+          </p>
+        <h2 className={compact ? "mt-1 text-lg font-black" : "mt-1 text-xl font-black"}>
+          Журнал игры
+        </h2>
       </div>
 
-      <div className="min-h-0 space-y-2 overflow-auto pr-1">
+      <div className={compact ? "min-h-0 space-y-1.5 overflow-auto pr-1" : "min-h-0 space-y-2 overflow-auto pr-1"}>
         {actionMessage ? (
           <article
             className={[
-              "ml-auto max-w-[88%] rounded-2xl px-4 py-2 text-xs font-semibold",
+              compact
+                ? "ml-auto max-w-[92%] rounded-2xl px-3 py-1.5 text-[11px] font-semibold"
+                : "ml-auto max-w-[88%] rounded-2xl px-4 py-2 text-xs font-semibold",
               darkMode
                 ? "bg-emerald-500/20 text-emerald-100"
                 : "bg-emerald-50 text-emerald-800",
@@ -1749,7 +1773,9 @@ function EventsPanel({
             <article
               key={event.id}
               className={[
-                "max-w-[92%] rounded-2xl px-4 py-2 text-xs font-semibold",
+                compact
+                  ? "max-w-[96%] rounded-2xl px-3 py-1.5 text-[11px] font-semibold"
+                  : "max-w-[92%] rounded-2xl px-4 py-2 text-xs font-semibold",
                 darkMode
                 ? "bg-white/10 text-white"
                 : "bg-zinc-100 text-zinc-800",
