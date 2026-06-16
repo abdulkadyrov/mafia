@@ -14,8 +14,21 @@ export function Toggle({ label, checked, onChange }: ToggleProps) {
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
       />
-      <span className="relative h-7 w-12 rounded-full bg-zinc-200 transition peer-checked:bg-zinc-950">
-        <span className="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+      <span className="grid h-6 w-6 place-items-center rounded-md border-2 border-zinc-300 bg-white text-white transition peer-checked:border-zinc-950 peer-checked:bg-zinc-950">
+        {checked ? (
+          <svg
+            viewBox="0 0 16 16"
+            aria-hidden="true"
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+          </svg>
+        ) : null}
       </span>
     </label>
   );

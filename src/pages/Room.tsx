@@ -315,9 +315,11 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     setActionMessage("");
 
     try {
+      const latestPlayers = await getPlayers(room.id);
+
       if (room.settings.roleAssignmentMode === "manual") {
         const manualAssignmentError = validateManualRoleAssignments(
-          players,
+          latestPlayers,
           room.settings
         );
 
@@ -326,10 +328,22 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
         }
       }
 
-      const assignedRoles = buildRoleAssignments(players, room.settings);
+      const assignedRoles = buildRoleAssignments(latestPlayers, room.settings);
 
       await Promise.all(
         assignedRoles.map((player) => updatePlayerRole(player.id, player.role))
+      );
+      setPlayers(
+        latestPlayers.map((player) => {
+          const assignedPlayer = assignedRoles.find(
+            (item) => item.id === player.id
+          );
+
+          return {
+            ...player,
+            role: assignedPlayer?.role ?? player.role,
+          };
+        })
       );
 
       await addGameEvent(room.id, {
@@ -459,6 +473,11 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
 
     try {
       await updatePlayerRole(targetPlayer.id, role);
+      setPlayers((currentPlayers) =>
+        currentPlayers.map((player) =>
+          player.id === targetPlayer.id ? { ...player, role } : player
+        )
+      );
       setActionMessage(`${targetPlayer.name}: назначена роль ${formatRole(role)}.`);
     } catch (error) {
       setErrorMessage(getErrorMessage(error, "Не удалось назначить роль"));
