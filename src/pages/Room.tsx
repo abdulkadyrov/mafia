@@ -51,6 +51,14 @@ type Props = {
 const PLAYER_ID_STORAGE_KEY = "mafia_player_id";
 const ROOM_ID_STORAGE_KEY = "mafia_room_id";
 const ROOM_CODE_STORAGE_KEY = "mafia_room_code";
+const MANUAL_ASSIGNABLE_ROLES: PlayerRole[] = [
+  "mafia",
+  "doctor",
+  "inspector",
+  "civilian",
+];
+
+type GameOutcome = "mafia" | "civilians" | "doctor" | "draw";
 
 export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   const [room, setRoom] = React.useState<RoomRecord | null>(null);
@@ -219,7 +227,8 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     () => getRunoffCandidateIds(gameEvents, room?.round_number ?? 0),
     [gameEvents, room?.round_number]
   );
-  const winner = room?.phase === "game_over" ? getWinner(players) : null;
+  const winner =
+    room?.phase === "game_over" ? getGameOutcome(players, gameEvents) : null;
 
   async function handleStartGame() {
     if (!room) {
@@ -236,6 +245,17 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     setActionMessage("");
 
     try {
+      if (room.settings.roleAssignmentMode === "manual") {
+        const manualAssignmentError = validateManualRoleAssignments(
+          players,
+          room.settings
+        );
+
+        if (manualAssignmentError) {
+          throw new Error(manualAssignmentError);
+        }
+      }
+
       const assignedRoles = buildRoleAssignments(players, room.settings);
 
       await Promise.all(
@@ -336,6 +356,42 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       setErrorMessage(getErrorMessage(error, "Не удалось добавить ботов"));
     } finally {
       setIsAddingBots(false);
+    }
+  }
+
+  async function handleManualRoleAssign(
+    targetPlayer: Player,
+    role: PlayerRole
+  ) {
+    if (
+      !room ||
+      !isHost ||
+      room.phase !== "lobby" ||
+      room.settings.roleAssignmentMode !== "manual"
+    ) {
+      return;
+    }
+
+    const assignmentError = getManualRoleAssignmentError(
+      targetPlayer,
+      role,
+      players,
+      room.settings
+    );
+
+    if (assignmentError) {
+      setErrorMessage(assignmentError);
+      return;
+    }
+
+    setErrorMessage("");
+    setActionMessage("");
+
+    try {
+      await updatePlayerRole(targetPlayer.id, role);
+      setActionMessage(`${targetPlayer.name}: назначена роль ${formatRole(role)}.`);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Не удалось назначить роль"));
     }
   }
 
@@ -457,7 +513,23 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
 
     try {
       if (room.phase === "night") {
-        await resolveNightPhase(room, players, nightActions);
+        const nightOutcome = await resolveNightPhase(room, players, nightActions);
+
+        if (nightOutcome) {
+          await addGameEvent(room.id, {
+            round_number: room.round_number,
+            phase: "game_over",
+            type: getGameOverEventType(nightOutcome),
+            message: getGameOverMessage(nightOutcome),
+            visibility: "public",
+            target_player_id: null,
+          });
+          await updateRoomPhase(room.id, "game_over", {
+            roundNumber: room.round_number,
+          });
+          return;
+        }
+
         await updateRoomPhase(room.id, "day", {
           roundNumber: room.round_number,
         });
@@ -489,10 +561,8 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
           await addGameEvent(reloadedRoom.id, {
             round_number: reloadedRoom.round_number,
             phase: "game_over",
-            type: "game_over",
-            message: `Победила ${
-              winnerAfterVoting === "mafia" ? "мафия" : "мирная команда"
-            }.`,
+            type: getGameOverEventType(winnerAfterVoting),
+            message: getGameOverMessage(winnerAfterVoting),
             visibility: "public",
             target_player_id: null,
           });
@@ -645,11 +715,13 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
               room={room}
               players={orderedPlayers}
               localPlayerId={localPlayerId}
+              isHost={isHost}
               isExpanded={isPlayersExpanded}
               onToggle={() => setIsPlayersExpanded((current) => !current)}
               onSelectPlayer={setSelectedPlayerId}
               selectedPlayerId={selectedPlayerId}
               selfPlayer={selfPlayer}
+              onManualRoleAssign={handleManualRoleAssign}
               isSubmittingAction={isSubmittingAction}
               onRoleAction={handleRoleAction}
               onSetPendingVoteTarget={setPendingVoteTargetId}
@@ -712,11 +784,13 @@ function PlayersPanel({
   room,
   players,
   localPlayerId,
+  isHost,
   isExpanded,
   onToggle,
   onSelectPlayer,
   selectedPlayerId,
   selfPlayer,
+  onManualRoleAssign,
   isSubmittingAction,
   onRoleAction,
   onSetPendingVoteTarget,
@@ -731,11 +805,13 @@ function PlayersPanel({
   room: RoomRecord;
   players: Player[];
   localPlayerId: string | null;
+  isHost: boolean;
   isExpanded: boolean;
   onToggle: () => void;
   onSelectPlayer: (playerId: string) => void;
   selectedPlayerId: string | null;
   selfPlayer: Player | null;
+  onManualRoleAssign: (targetPlayer: Player, role: PlayerRole) => Promise<void>;
   isSubmittingAction: boolean;
   onRoleAction: (
     targetPlayer: Player,
@@ -752,6 +828,9 @@ function PlayersPanel({
 }) {
   const darkMode = room.phase === "night";
   const canActAtNight = Boolean(selfPlayer?.is_alive && room.phase === "night");
+  const roleCounts = React.useMemo(() => countAssignedRoles(players), [players]);
+  const manualMode =
+    room.phase === "lobby" && isHost && room.settings.roleAssignmentMode === "manual";
   const canVote =
     Boolean(selfPlayer?.is_alive) &&
     (room.phase === "voting" || room.phase === "voting_confirmation");
@@ -782,6 +861,27 @@ function PlayersPanel({
           {isExpanded ? "Свернуть" : "Раскрыть"}
         </Button>
       </div>
+
+      {manualMode ? (
+        <div
+          className={[
+            "mt-3 flex flex-wrap gap-2 text-xs font-semibold",
+            darkMode ? "text-white/70" : "text-zinc-600",
+          ].join(" ")}
+        >
+          {MANUAL_ASSIGNABLE_ROLES.map((role) => (
+            <span
+              key={role}
+              className={[
+                "rounded-full px-3 py-1",
+                darkMode ? "bg-white/10" : "bg-zinc-100",
+              ].join(" ")}
+            >
+              {formatRole(role)}: {roleCounts[role]}/{getRoleLimit(role, room.settings)}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {isExpanded ? (
         <div className="mt-3 min-h-0 space-y-2 overflow-auto pr-1">
@@ -840,6 +940,7 @@ function PlayersPanel({
                     >
                       {player.is_host ? "Хост" : "Игрок"} ·{" "}
                       {player.is_alive ? "Жив" : "Погиб"}
+                      {manualMode ? ` · ${formatRole(player.role)}` : ""}
                     </p>
                   </div>
                   <div
@@ -923,6 +1024,45 @@ function PlayersPanel({
                         {actionMessage}
                       </p>
                     ) : null}
+                  </div>
+                ) : null}
+
+                {isSelected && manualMode ? (
+                  <div className="mt-3 border-t border-current/10 pt-3">
+                    <p
+                      className={[
+                        "mb-2 text-xs font-bold uppercase tracking-[0.14em]",
+                        darkMode ? "text-white/60" : "text-zinc-500",
+                      ].join(" ")}
+                    >
+                      Назначить роль
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {MANUAL_ASSIGNABLE_ROLES.map((role) => {
+                        const disabled = Boolean(
+                          getManualRoleAssignmentError(
+                            player,
+                            role,
+                            players,
+                            room.settings
+                          )
+                        );
+
+                        return (
+                          <Button
+                            key={role}
+                            className="min-h-10 px-3 py-2"
+                            disabled={disabled}
+                            variant={player.role === role ? "primary" : "secondary"}
+                            onClick={() => {
+                              void onManualRoleAssign(player, role);
+                            }}
+                          >
+                            {formatRole(role)}
+                          </Button>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : null}
 
@@ -1219,7 +1359,7 @@ function FinalPanel({
   winner,
 }: {
   players: Player[];
-  winner: "mafia" | "civilians" | null;
+  winner: GameOutcome | null;
 }) {
   const rankedPlayers = [...players]
     .map((player) => ({
@@ -1234,11 +1374,7 @@ function FinalPanel({
         Финал
       </p>
       <h2 className="mt-2 text-2xl font-black">
-        {winner === "mafia"
-          ? "Победила мафия"
-          : winner === "civilians"
-          ? "Победили мирные"
-          : "Игра завершена"}
+        {getGameOverMessage(winner)}
       </h2>
 
       <div className="mt-4 space-y-2">
@@ -1272,9 +1408,12 @@ async function resolveNightPhase(
   room: RoomRecord,
   players: Player[],
   nightActions: NightAction[]
-): Promise<void> {
+): Promise<GameOutcome | null> {
   const alivePlayers = players.filter((player) => player.is_alive);
   const aliveMafia = alivePlayers.filter((player) => player.role === "mafia");
+  const aliveInspectors = alivePlayers.filter(
+    (player) => player.role === "inspector"
+  );
   const doctorActions = nightActions.filter(
     (action) => action.action_type === "doctorHeal"
   );
@@ -1329,34 +1468,83 @@ async function resolveNightPhase(
       visibility: "public",
       target_player_id: null,
     });
-    return;
+  } else {
+    await Promise.all(
+      [...deathTargetIds].map(async (playerId) => {
+        const player = players.find((item) => item.id === playerId);
+
+        await killPlayer(playerId);
+        await addGameEvent(room.id, {
+          round_number: room.round_number,
+          phase: "night",
+          type: "night_result",
+          message: `${player?.name ?? "Игрок"} погиб этой ночью.`,
+          visibility: "public",
+          target_player_id: playerId,
+        });
+        await addGameEvent(room.id, {
+          round_number: room.round_number,
+          phase: "night",
+          type: "role_revealed",
+          message: `Роль игрока ${player?.name ?? "Игрок"}: ${formatRole(
+            player?.role ?? "civilian"
+          )}.`,
+          visibility: "public",
+          target_player_id: playerId,
+        });
+      })
+    );
   }
 
-  await Promise.all(
-    [...deathTargetIds].map(async (playerId) => {
-      const player = players.find((item) => item.id === playerId);
-
-      await killPlayer(playerId);
-      await addGameEvent(room.id, {
-        round_number: room.round_number,
-        phase: "night",
-        type: "night_result",
-        message: `${player?.name ?? "Игрок"} погиб этой ночью.`,
-        visibility: "public",
-        target_player_id: playerId,
-      });
-      await addGameEvent(room.id, {
-        round_number: room.round_number,
-        phase: "night",
-        type: "role_revealed",
-        message: `Роль игрока ${player?.name ?? "Игрок"}: ${formatRole(
-          player?.role ?? "civilian"
-        )}.`,
-        visibility: "public",
-        target_player_id: playerId,
-      });
-    })
+  const doctorSelfSaveCandidates = alivePlayers.filter(
+    (player) =>
+      player.role === "doctor" &&
+      mafiaTargetId === player.id &&
+      !deathTargetIds.has(player.id) &&
+      doctorActions.some(
+        (action) =>
+          action.actor_player_id === player.id &&
+          action.target_player_id === player.id
+      )
   );
+  const doctorSelfSaveChecks = await Promise.all(
+    doctorSelfSaveCandidates.map(async (player) => ({
+      player,
+      selfHealCount: await getDoctorSelfHealCount(room.id, player.id),
+    }))
+  );
+  const doctorSelfSave = doctorSelfSaveChecks.some(
+    ({ selfHealCount }) => selfHealCount === 1
+  );
+
+  const mutualInspectorDraw =
+    aliveInspectors.some((inspector) => deathTargetIds.has(inspector.id)) &&
+    detectiveKillActions.some((action) => {
+      const target = players.find((player) => player.id === action.target_player_id);
+      const inspector = players.find((player) => player.id === action.actor_player_id);
+
+      return (
+        inspector?.role === "inspector" &&
+        target?.role === "mafia" &&
+        Boolean(target.id && deathTargetIds.has(target.id)) &&
+        mafiaTargetId === inspector.id
+      );
+    });
+
+  if (doctorSelfSave) {
+    return "doctor";
+  }
+
+  if (mutualInspectorDraw) {
+    return "draw";
+  }
+
+  const resolvedPlayers = players.map((player) => ({
+    ...player,
+    is_alive: player.is_alive && !deathTargetIds.has(player.id),
+  }));
+
+  return getWinner(resolvedPlayers);
 }
 
 async function resolveVotingPhase(
@@ -1508,6 +1696,13 @@ function buildRoleAssignments(
   players: Player[],
   settings: RoomRecord["settings"]
 ): Array<{ id: string; role: PlayerRole }> {
+  if (settings.roleAssignmentMode === "manual") {
+    return players.map((player) => ({
+      id: player.id,
+      role: player.role === "unassigned" ? "civilian" : player.role,
+    }));
+  }
+
   const deck = buildRoleDeck(players.length, settings);
   const shuffledRoles = shuffle(deck);
   const shuffledPlayers = shuffle(players);
@@ -1768,13 +1963,20 @@ function formatTimer(secondsLeft: number): string {
 
 function getWinner(players: Player[]): "mafia" | "civilians" | null {
   const alivePlayers = players.filter((player) => player.is_alive);
-  const mafiaAlive = alivePlayers.filter(
-    (player) => player.role === "mafia"
-  ).length;
+  const aliveMafiaPlayers = alivePlayers.filter((player) => player.role === "mafia");
+  const mafiaAlive = aliveMafiaPlayers.length;
   const civiliansAlive = alivePlayers.length - mafiaAlive;
 
   if (mafiaAlive === 0) {
     return "civilians";
+  }
+
+  if (
+    mafiaAlive === 1 &&
+    alivePlayers.length === 2 &&
+    alivePlayers.some((player) => player.role === "inspector")
+  ) {
+    return null;
   }
 
   if (mafiaAlive >= civiliansAlive) {
@@ -1786,11 +1988,12 @@ function getWinner(players: Player[]): "mafia" | "civilians" | null {
 
 function computeFinalScore(
   player: Player,
-  winner: "mafia" | "civilians" | null
+  winner: GameOutcome | null
 ): number {
   const belongsToWinner =
     (winner === "mafia" && player.role === "mafia") ||
-    (winner === "civilians" && player.role !== "mafia");
+    (winner === "civilians" && player.role !== "mafia") ||
+    (winner === "doctor" && player.role === "doctor");
 
   return (
     player.score +
@@ -1798,6 +2001,135 @@ function computeFinalScore(
     (player.is_alive ? 2 : 0) +
     (player.is_host ? 1 : 0)
   );
+}
+
+function getGameOutcome(
+  players: Player[],
+  events: GameEvent[]
+): GameOutcome | null {
+  const latestGameOverEvent = [...events]
+    .filter((event) => event.phase === "game_over")
+    .sort(
+      (left, right) =>
+        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+    )[0];
+
+  switch (latestGameOverEvent?.type) {
+    case "game_over_mafia":
+      return "mafia";
+    case "game_over_civilians":
+      return "civilians";
+    case "game_over_doctor":
+      return "doctor";
+    case "game_over_draw":
+      return "draw";
+    default:
+      return getWinner(players);
+  }
+}
+
+function getGameOverMessage(winner: GameOutcome | null): string {
+  switch (winner) {
+    case "mafia":
+      return "Победила мафия";
+    case "civilians":
+      return "Победили мирные";
+    case "doctor":
+      return "Доктор победил";
+    case "draw":
+      return "Ничья";
+    default:
+      return "Игра завершена";
+  }
+}
+
+function getGameOverEventType(winner: GameOutcome): string {
+  switch (winner) {
+    case "mafia":
+      return "game_over_mafia";
+    case "civilians":
+      return "game_over_civilians";
+    case "doctor":
+      return "game_over_doctor";
+    case "draw":
+      return "game_over_draw";
+    default:
+      return "game_over";
+  }
+}
+
+function countAssignedRoles(players: Player[]): Record<PlayerRole, number> {
+  return players.reduce<Record<PlayerRole, number>>(
+    (counts, player) => {
+      counts[player.role] += 1;
+      return counts;
+    },
+    {
+      unassigned: 0,
+      mafia: 0,
+      doctor: 0,
+      inspector: 0,
+      civilian: 0,
+    }
+  );
+}
+
+function getRoleLimit(role: PlayerRole, settings: RoomRecord["settings"]): number {
+  switch (role) {
+    case "mafia":
+      return settings.roles.mafia;
+    case "doctor":
+      return settings.roles.doctors;
+    case "inspector":
+      return settings.roles.detectives;
+    case "civilian":
+      return settings.roles.civilians;
+    default:
+      return 0;
+  }
+}
+
+function getManualRoleAssignmentError(
+  targetPlayer: Player,
+  role: PlayerRole,
+  players: Player[],
+  settings: RoomRecord["settings"]
+): string | null {
+  if (role === "unassigned") {
+    return "Роль должна быть одной из игровых.";
+  }
+
+  if (targetPlayer.role === role) {
+    return null;
+  }
+
+  const roleCounts = countAssignedRoles(players);
+  const roleLimit = getRoleLimit(role, settings);
+
+  if (roleCounts[role] >= roleLimit) {
+    return `Для роли ${formatRole(role)} уже выбран максимум игроков.`;
+  }
+
+  return null;
+}
+
+function validateManualRoleAssignments(
+  players: Player[],
+  settings: RoomRecord["settings"]
+): string | null {
+  const roleCounts = countAssignedRoles(players);
+
+  if (roleCounts.unassigned > 0) {
+    return "В ручном режиме нужно назначить роли всем игрокам.";
+  }
+
+  for (const role of MANUAL_ASSIGNABLE_ROLES) {
+    if (roleCounts[role] !== getRoleLimit(role, settings)) {
+      return `Количество ролей ${formatRole(role)} не совпадает с настройками.`;
+    }
+  }
+
+  return null;
 }
 
 function getRunoffCandidateIds(
