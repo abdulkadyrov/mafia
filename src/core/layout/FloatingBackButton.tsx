@@ -11,11 +11,6 @@ export function FloatingBackButton({
     <button
       type="button"
       onClick={() => {
-        if (window.history.length > 1) {
-          onBack();
-          return;
-        }
-
         if (fallbackPath) {
           history.replaceState(null, "", createHashAppPath(fallbackPath));
           window.dispatchEvent(new HashChangeEvent("hashchange"));

@@ -34,7 +34,7 @@ export function AppLayout({
         <div className="flex-1">{children}</div>
       </div>
       {backPath ? (
-        <FloatingBackButton onBack={() => history.back()} fallbackPath={backPath} />
+        <FloatingBackButton onBack={() => {}} fallbackPath={backPath} />
       ) : null}
     </main>
   );
