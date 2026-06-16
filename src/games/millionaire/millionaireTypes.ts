@@ -34,6 +34,7 @@ export type MillionaireQuestionResult = {
 };
 
 export type MillionaireState = {
+  setupMode: "teams" | "single";
   setupStep: "teams" | "pack" | "play";
   selectedPackId: string | null;
   questionIndex: number;

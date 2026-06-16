@@ -38,6 +38,7 @@ export type AliasRoundHistory = {
 };
 
 export type AliasState = {
+  setupMode: "teams" | "single";
   setupStep: "teams" | "pack" | "play";
   selectedPackId: string | null;
   phase: "setup" | "running" | "paused" | "round_over" | "finished";

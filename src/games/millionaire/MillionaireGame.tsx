@@ -13,7 +13,9 @@ import { useTeams } from "../../core/teams/useTeams";
 import { Card } from "../../core/ui/Card";
 import { updateRoomMeta } from "../../core/room/roomService";
 import { Button } from "../../core/ui/Button";
+import { MillionaireAnswerGrid } from "./MillionaireAnswerGrid";
 import { MillionaireHostScreen } from "./MillionaireHostScreen";
+import { MillionaireQuestionView } from "./MillionaireQuestionView";
 import { MillionaireTeamScreen } from "./MillionaireTeamScreen";
 import { millionaireSounds } from "./millionaireSounds";
 import type { MillionairePack, MillionaireQuestion, MillionaireState } from "./millionaireTypes";
@@ -52,6 +54,7 @@ const BUILTIN_PACK: MillionairePack = {
 
 function createInitialMillionaireState(): MillionaireState {
   return {
+    setupMode: "teams",
     setupStep: "teams",
     selectedPackId: null,
     questionIndex: 0,
@@ -149,6 +152,15 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     await refreshTeams();
   }
 
+  async function changeSetupMode(mode: MillionaireState["setupMode"]) {
+    await syncQuestionPhase({
+      ...createInitialMillionaireState(),
+      setupMode: mode,
+      setupStep: "teams",
+      selectedPackId: state.selectedPackId,
+    });
+  }
+
   async function changeSelectedPack(packId: string) {
     await syncQuestionPhase({
       ...state,
@@ -213,14 +225,17 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
   }
 
   async function handleMarkCorrect() {
-    if (!room?.id || !state.buzzedTeamId || !question) {
+    const effectiveTeamId =
+      state.buzzedTeamId ?? (state.setupMode === "single" ? "single-device" : null);
+
+    if (!room?.id || !effectiveTeamId || !question) {
       return;
     }
 
     await playSfx("correctHard");
     await applyScoreDelta({
       roomId: room.id,
-      teamId: state.buzzedTeamId,
+      teamId: effectiveTeamId,
       delta: question.points,
       reason: `Вопрос ${question.id}`,
     });
@@ -228,12 +243,12 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     await syncQuestionPhase({
       ...state,
       phase: "resolved",
-      lastCorrectTeamId: state.buzzedTeamId,
+      lastCorrectTeamId: effectiveTeamId,
       results: [
         ...state.results,
         {
           questionId: question.id,
-          teamId: state.buzzedTeamId,
+          teamId: effectiveTeamId,
           result: "correct",
           createdAt: new Date().toISOString(),
         },
@@ -242,24 +257,27 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
   }
 
   async function handleMarkWrong() {
-    if (!state.buzzedTeamId || !question) {
+    const effectiveTeamId =
+      state.buzzedTeamId ?? (state.setupMode === "single" ? "single-device" : null);
+
+    if (!effectiveTeamId || !question) {
       return;
     }
 
     await playSfx("wrong");
-    const nextWrongTeamIds = [...new Set([...state.wrongTeamIds, state.buzzedTeamId])];
+    const nextWrongTeamIds = [...new Set([...state.wrongTeamIds, effectiveTeamId])];
     const everyoneTried = teams.length > 0 && nextWrongTeamIds.length >= teams.length;
 
     await syncQuestionPhase({
       ...state,
-      phase: everyoneTried ? "resolved" : "question",
+      phase: state.setupMode === "single" || everyoneTried ? "resolved" : "question",
       buzzedTeamId: null,
       wrongTeamIds: nextWrongTeamIds,
       results: [
         ...state.results,
         {
           questionId: question.id,
-          teamId: state.buzzedTeamId,
+          teamId: effectiveTeamId,
           result: "wrong",
           createdAt: new Date().toISOString(),
         },
@@ -351,10 +369,57 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     >
       <ResponsiveGameFrame>
         <div className="grid h-full gap-4">
-          {isHost && (teams.length === 0 || state.setupStep === "teams") ? (
+          {isHost && state.setupStep === "teams" ? (
             <>
-              <TeamManager />
-              {teams.length > 0 ? (
+              <Card>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                  Режим игры
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Button
+                    variant={state.setupMode === "teams" ? "primary" : "secondary"}
+                    onClick={() => {
+                      void changeSetupMode("teams");
+                    }}
+                  >
+                    Команды и QR
+                  </Button>
+                  <Button
+                    variant={state.setupMode === "single" ? "primary" : "secondary"}
+                    onClick={() => {
+                      void changeSetupMode("single");
+                    }}
+                  >
+                    Один экран
+                  </Button>
+                </div>
+              </Card>
+
+              {state.setupMode === "teams" ? <TeamManager /> : null}
+              {state.setupMode === "single" ? (
+                <Card>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                    Шаг 1
+                  </p>
+                  <h3 className="mt-2 text-2xl font-black text-white">
+                    Игра на одном телефоне
+                  </h3>
+                  <p className="mt-3 text-sm font-semibold text-white/70">
+                    Этот режим не требует команд и QR. Ведущий показывает вопрос,
+                    игроки отвечают вслух, а вы отмечаете правильный или неверный ответ.
+                  </p>
+                  <div className="mt-5">
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        void continueToPackSelection();
+                      }}
+                    >
+                      Продолжить
+                    </Button>
+                  </div>
+                </Card>
+              ) : teams.length > 0 ? (
                 <Card>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
                     Шаг 1
@@ -436,6 +501,41 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
                 </Button>
               </div>
             </Card>
+          ) : isHost && state.setupMode === "single" ? (
+            <div className="grid h-full gap-4">
+              <MillionaireQuestionView question={question} />
+              {state.showOptions ? (
+                <MillionaireAnswerGrid question={question} />
+              ) : (
+                <Card className="text-white/72">Варианты ответа пока скрыты.</Card>
+              )}
+              <Card>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                  Один экран
+                </p>
+                <p className="mt-3 text-sm font-semibold text-white/70">
+                  Тема: {selectedPack.title}
+                </p>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <Button variant="primary" onClick={() => void handleStartQuestion()}>
+                    Начать вопрос
+                  </Button>
+                  <Button onClick={() => void handleShowOptions()}>
+                    Показать варианты
+                  </Button>
+                  <Button onClick={() => void handleMarkCorrect()} disabled={!question}>
+                    Правильный ответ
+                  </Button>
+                  <Button onClick={() => void handleMarkWrong()} disabled={!question}>
+                    Неправильный ответ
+                  </Button>
+                  <Button onClick={() => void handleNextQuestion()}>Следующий вопрос</Button>
+                  <Button variant="ghost" onClick={() => void handleEndGame()}>
+                    Завершить игру
+                  </Button>
+                </div>
+              </Card>
+            </div>
           ) : isHost ? (
             <MillionaireHostScreen
               teams={teams}

@@ -1,8 +1,9 @@
 import React from "react";
-import { useGamePacks } from "./useGamePacks";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Tabs } from "../ui/Tabs";
+import { getGamePacksByType, type GamePackRecord } from "../games/gameStateService";
+import { subscribeToGamePacks, unsubscribe } from "../supabase/realtime";
 import { saveGamePack } from "./packService";
 import { buildPackPrompt, buildPackTemplate } from "./packTemplates";
 import { validatePack } from "./packValidators";
@@ -24,7 +25,8 @@ export function ImportJsonPack({
   const [json, setJson] = React.useState("");
   const [status, setStatus] = React.useState("");
   const [errors, setErrors] = React.useState<string[]>([]);
-  const { packs, isLoading: packsLoading } = useGamePacks(game);
+  const [packs, setPacks] = React.useState<GamePackRecord[]>([]);
+  const [packsLoading, setPacksLoading] = React.useState(true);
   const template = React.useMemo(
     () =>
       buildPackTemplate(game, {
@@ -58,6 +60,36 @@ export function ImportJsonPack({
     setErrors([]);
     setStatus("");
   }, [game]);
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    async function loadPacks() {
+      setPacksLoading(true);
+
+      try {
+        const nextPacks = await getGamePacksByType(roomId, game);
+
+        if (isMounted) {
+          setPacks(nextPacks);
+        }
+      } finally {
+        if (isMounted) {
+          setPacksLoading(false);
+        }
+      }
+    }
+
+    void loadPacks();
+    const channel = subscribeToGamePacks(roomId, () => {
+      void loadPacks();
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe(channel);
+    };
+  }, [game, roomId]);
 
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];

@@ -18,7 +18,9 @@ import { routes } from "../../core/config/routes";
 import { clearSession } from "../../utils/storage";
 import { createHashAppPath } from "../../shared/routing/basePath";
 import { AliasHostScreen } from "./AliasHostScreen";
+import { AliasTimer } from "./AliasTimer";
 import { AliasTeamScreen } from "./AliasTeamScreen";
+import { AliasWordCard } from "./AliasWordCard";
 import {
   buildAliasEntry,
   computeAliasScores,
@@ -110,6 +112,17 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
     state.winnerTeamId ??
     getAliasWinnerTeamId(teams, scoreMap, state.scoreToWin);
   const teamJoinBaseUrl = `${window.location.origin}${import.meta.env.BASE_URL}#`;
+  const singleModeTeam = React.useMemo(
+    () => ({
+      id: "single-device",
+      room_id: room?.id ?? "single-device",
+      name: "Один экран",
+      color: null,
+      score: 0,
+      created_at: new Date(0).toISOString(),
+    }),
+    [room?.id]
+  );
 
   React.useEffect(() => {
     if (state.phase === "running") {
@@ -184,6 +197,17 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
     });
   }
 
+  async function changeSetupMode(mode: AliasState["setupMode"]) {
+    await persistAliasState({
+      ...createInitialAliasState(),
+      setupMode: mode,
+      selectedPackId: state.selectedPackId,
+      roundTimeSec: state.roundTimeSec,
+      scoreToWin: state.scoreToWin,
+      remainingSeconds: state.roundTimeSec,
+    });
+  }
+
   async function continueToPackSelection() {
     await persistAliasState({
       ...state,
@@ -227,12 +251,14 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
   }
 
   async function pushEntry(result: "correct" | "skip" | "mistake") {
-    if (!currentTeamByTurn || !currentWord) {
+    const effectiveTeam = state.setupMode === "single" ? singleModeTeam : currentTeamByTurn;
+
+    if (!effectiveTeam || !currentWord) {
       return;
     }
 
     const entry = buildAliasEntry({
-      teamId: currentTeamByTurn.id,
+      teamId: effectiveTeam.id,
       wordId: currentWord.id,
       wordText: currentWord.text,
       result,
@@ -246,9 +272,10 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
   }
 
   async function nextTurn() {
+    const effectiveTeam = state.setupMode === "single" ? singleModeTeam : currentTeamByTurn;
     const round = {
       id: `${Date.now()}-round`,
-      teamId: currentTeamByTurn?.id ?? "",
+      teamId: effectiveTeam?.id ?? "",
       entries: state.activeEntries,
       createdAt: new Date().toISOString(),
     };
@@ -256,7 +283,12 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
     await persistAliasState({
       ...state,
       phase: winnerTeamId ? "finished" : "setup",
-      currentTeamIndex: teams.length > 0 ? (state.currentTeamIndex + 1) % teams.length : 0,
+      currentTeamIndex:
+        state.setupMode === "single"
+          ? 0
+          : teams.length > 0
+          ? (state.currentTeamIndex + 1) % teams.length
+          : 0,
       activeEntries: [],
       rounds: state.activeEntries.length > 0 ? [...state.rounds, round] : state.rounds,
       roundEndsAt: null,
@@ -295,6 +327,7 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
     ...team,
     score: scoreMap[team.id] ?? 0,
   }));
+  const singleModeEntries = state.activeEntries;
 
   return (
     <AppLayout
@@ -309,10 +342,52 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
     >
       <ResponsiveGameFrame>
         <div className="grid h-full gap-4">
-          {isHost && (teams.length === 0 || state.setupStep === "teams") ? (
+          {isHost && state.setupStep === "teams" ? (
             <>
-              <TeamManager />
-              {teams.length > 0 ? (
+              <Card>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                  Режим игры
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Button
+                    variant={state.setupMode === "teams" ? "primary" : "secondary"}
+                    onClick={() => {
+                      void changeSetupMode("teams");
+                    }}
+                  >
+                    Команды и QR
+                  </Button>
+                  <Button
+                    variant={state.setupMode === "single" ? "primary" : "secondary"}
+                    onClick={() => {
+                      void changeSetupMode("single");
+                    }}
+                  >
+                    Один экран
+                  </Button>
+                </div>
+              </Card>
+
+              {state.setupMode === "teams" ? <TeamManager /> : null}
+              {state.setupMode === "single" ? (
+                <Card>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                    Шаг 1
+                  </p>
+                  <h3 className="mt-2 text-2xl font-black text-white">
+                    Alias на одном телефоне
+                  </h3>
+                  <p className="mt-3 text-sm font-semibold text-white/70">
+                    В этом режиме слово показывается по центру, таймер идёт сверху, а
+                    ведущий отмечает угаданные и пропущенные слова на одном устройстве.
+                  </p>
+                  <div className="mt-5">
+                    <Button variant="primary" onClick={() => void continueToPackSelection()}>
+                      Продолжить
+                    </Button>
+                  </div>
+                </Card>
+              ) : teams.length > 0 ? (
                 <Card>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
                     Шаг 1
@@ -436,6 +511,93 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
                 </Button>
               </div>
             </Card>
+          ) : isHost && state.setupMode === "single" ? (
+            state.phase === "round_over" ? (
+              <Card>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                  Результат раунда
+                </p>
+                <h3 className="mt-2 text-2xl font-black text-white">Проверка слов</h3>
+                <div className="mt-4 space-y-3">
+                  {singleModeEntries.length === 0 ? (
+                    <p className="text-sm font-semibold text-white/65">
+                      За этот раунд не было отмечено слов.
+                    </p>
+                  ) : (
+                    singleModeEntries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-black text-white">{entry.wordText}</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void updateEntryResult(entry.id, "correct");
+                              }}
+                              className={[
+                                "rounded-full px-3 py-1 text-xs font-black",
+                                entry.result === "correct"
+                                  ? "bg-emerald-500 text-white"
+                                  : "bg-white/10 text-white/70",
+                              ].join(" ")}
+                            >
+                              ✓
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void updateEntryResult(entry.id, "skip");
+                              }}
+                              className={[
+                                "rounded-full px-3 py-1 text-xs font-black",
+                                entry.result === "skip"
+                                  ? "bg-red-500 text-white"
+                                  : "bg-white/10 text-white/70",
+                              ].join(" ")}
+                            >
+                              Без ✓
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="mt-5">
+                  <Button variant="primary" onClick={() => void nextTurn()}>
+                    Продолжить
+                  </Button>
+                </div>
+              </Card>
+            ) : (
+              <div className="grid h-full grid-rows-[auto_1fr_auto] gap-4">
+                <div className="flex justify-center">
+                  <AliasTimer seconds={state.remainingSeconds} />
+                </div>
+                <AliasWordCard word={currentWord} />
+                <div className="grid grid-cols-2 gap-4">
+                  <Button
+                    className="min-h-[4.5rem] border-red-500 bg-red-500 text-white hover:bg-red-600"
+                    onClick={() => {
+                      void pushEntry("skip");
+                    }}
+                  >
+                    Пропустить
+                  </Button>
+                  <Button
+                    className="min-h-[4.5rem] border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600"
+                    onClick={() => {
+                      void pushEntry("correct");
+                    }}
+                  >
+                    Угадали
+                  </Button>
+                </div>
+              </div>
+            )
           ) : isHost ? (
             <AliasHostScreen
               teams={teams}

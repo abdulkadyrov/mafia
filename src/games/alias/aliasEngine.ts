@@ -8,6 +8,7 @@ import type {
 
 export function createInitialAliasState(): AliasState {
   return {
+    setupMode: "teams",
     setupStep: "teams",
     selectedPackId: null,
     phase: "setup",
