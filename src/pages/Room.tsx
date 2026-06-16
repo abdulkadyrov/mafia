@@ -60,6 +60,13 @@ const MANUAL_ASSIGNABLE_ROLES: PlayerRole[] = [
 
 type GameOutcome = "mafia" | "civilians" | "doctor" | "draw";
 type SuspicionMap = Record<string, number>;
+type ChatMessage = {
+  id: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  createdAt: string;
+};
 
 export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   const [room, setRoom] = React.useState<RoomRecord | null>(null);
@@ -74,6 +81,9 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   const [isSavingSettings, setIsSavingSettings] = React.useState(false);
   const [isAddingBots, setIsAddingBots] = React.useState(false);
   const [isSubmittingAction, setIsSubmittingAction] = React.useState(false);
+  const [isChatOpen, setIsChatOpen] = React.useState(false);
+  const [chatDraft, setChatDraft] = React.useState("");
+  const [unreadChatCount, setUnreadChatCount] = React.useState(0);
   const [selectedPlayerId, setSelectedPlayerId] = React.useState<string | null>(
     null
   );
@@ -81,6 +91,8 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     string | null
   >(null);
   const [isPlayersExpanded, setIsPlayersExpanded] = React.useState(true);
+  const lastSeenIncomingChatIdRef = React.useRef<string | null>(null);
+  const hasInitializedChatRef = React.useRef(false);
   const normalizedRoomCode = React.useMemo(
     () => normalizeRoomCode(roomCode),
     [roomCode]
@@ -230,6 +242,63 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   );
   const winner =
     room?.phase === "game_over" ? getGameOutcome(players, gameEvents) : null;
+  const chatMessages = React.useMemo(
+    () =>
+      gameEvents
+        .filter((event) => event.type === "chat_message")
+        .map(parseChatMessageEvent)
+        .filter((message): message is ChatMessage => Boolean(message)),
+    [gameEvents]
+  );
+
+  React.useEffect(() => {
+    const latestIncomingMessage = [...chatMessages]
+      .reverse()
+      .find((message) => message.authorId !== localPlayerId);
+
+    if (!hasInitializedChatRef.current) {
+      hasInitializedChatRef.current = true;
+      lastSeenIncomingChatIdRef.current = latestIncomingMessage?.id ?? null;
+      return;
+    }
+
+    if (isChatOpen) {
+      lastSeenIncomingChatIdRef.current = latestIncomingMessage?.id ?? null;
+      setUnreadChatCount(0);
+      return;
+    }
+
+    if (!latestIncomingMessage) {
+      return;
+    }
+
+    if (lastSeenIncomingChatIdRef.current === latestIncomingMessage.id) {
+      return;
+    }
+
+    const newIncomingCount = [...chatMessages].filter((message) => {
+      if (message.authorId === localPlayerId) {
+        return false;
+      }
+
+      if (!lastSeenIncomingChatIdRef.current) {
+        return true;
+      }
+
+      const messageTime = new Date(message.createdAt).getTime();
+      const lastSeenMessage = chatMessages.find(
+        (item) => item.id === lastSeenIncomingChatIdRef.current
+      );
+      const lastSeenTime = lastSeenMessage
+        ? new Date(lastSeenMessage.createdAt).getTime()
+        : 0;
+
+      return messageTime > lastSeenTime;
+    }).length;
+
+    lastSeenIncomingChatIdRef.current = latestIncomingMessage.id;
+    setUnreadChatCount((current) => current + newIncomingCount);
+  }, [chatMessages, isChatOpen, localPlayerId]);
 
   async function handleStartGame() {
     if (!room) {
@@ -613,6 +682,38 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     }
   }
 
+  async function handleSendChatMessage() {
+    if (!room || !selfPlayer) {
+      return;
+    }
+
+    const text = chatDraft.trim();
+
+    if (!text) {
+      return;
+    }
+
+    try {
+      await addGameEvent(room.id, {
+        round_number: room.round_number,
+        phase: room.phase,
+        type: "chat_message",
+        message: JSON.stringify({
+          authorId: selfPlayer.id,
+          authorName: selfPlayer.name,
+          text,
+        }),
+        visibility: "public",
+        target_player_id: null,
+      });
+      setChatDraft("");
+      setIsChatOpen(true);
+      setUnreadChatCount(0);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Не удалось отправить сообщение"));
+    }
+  }
+
   if (isLoading) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#f7f7f5] px-5 text-zinc-950">
@@ -792,6 +893,23 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
           </div>
         </section>
       </div>
+
+      <FloatingChat
+        darkMode={room.phase === "night"}
+        isOpen={isChatOpen}
+        unreadCount={unreadChatCount}
+        messages={chatMessages}
+        localPlayerId={localPlayerId}
+        draft={chatDraft}
+        onDraftChange={setChatDraft}
+        onSend={() => {
+          void handleSendChatMessage();
+        }}
+        onToggle={() => {
+          setIsChatOpen((current) => !current);
+          setUnreadChatCount(0);
+        }}
+      />
     </motion.main>
   );
 };
@@ -1305,7 +1423,10 @@ function EventsPanel({
   actionMessage: string;
 }) {
   const darkMode = phase === "night";
-  const visibleEvents = events.slice(-14).reverse();
+  const visibleEvents = events
+    .filter((event) => event.type !== "chat_message")
+    .slice(-14)
+    .reverse();
 
   return (
     <div
@@ -1366,6 +1487,167 @@ function EventsPanel({
             </article>
           ))
         )}
+      </div>
+    </div>
+  );
+}
+
+function FloatingChat({
+  darkMode,
+  isOpen,
+  unreadCount,
+  messages,
+  localPlayerId,
+  draft,
+  onDraftChange,
+  onSend,
+  onToggle,
+}: {
+  darkMode: boolean;
+  isOpen: boolean;
+  unreadCount: number;
+  messages: ChatMessage[];
+  localPlayerId: string | null;
+  draft: string;
+  onDraftChange: (value: string) => void;
+  onSend: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="pointer-events-none fixed bottom-5 right-5 z-50 flex items-end gap-3">
+      {isOpen ? (
+        <div
+          className={[
+            "pointer-events-auto flex h-[28rem] w-[22rem] max-w-[calc(100vw-5rem)] flex-col overflow-hidden rounded-3xl border shadow-[0_24px_80px_rgba(15,23,42,0.24)]",
+            darkMode
+              ? "border-white/10 bg-[#09111f]/95 text-white backdrop-blur"
+              : "border-zinc-200 bg-white text-zinc-950",
+          ].join(" ")}
+        >
+          <div
+            className={[
+              "flex items-center justify-between border-b px-4 py-3",
+              darkMode ? "border-white/10" : "border-zinc-200",
+            ].join(" ")}
+          >
+            <div>
+              <p
+                className={[
+                  "text-xs font-black uppercase tracking-[0.18em]",
+                  darkMode ? "text-white/50" : "text-zinc-500",
+                ].join(" ")}
+              >
+                Чат
+              </p>
+              <h3 className="text-lg font-black">Сообщения комнаты</h3>
+            </div>
+            <Button className="min-h-9 px-3 py-2" variant="ghost" onClick={onToggle}>
+              Скрыть
+            </Button>
+          </div>
+
+          <div className="flex-1 space-y-3 overflow-auto px-4 py-3">
+            {messages.length === 0 ? (
+              <p
+                className={[
+                  "text-sm font-semibold",
+                  darkMode ? "text-white/60" : "text-zinc-500",
+                ].join(" ")}
+              >
+                Пока пусто. Можно написать первым.
+              </p>
+            ) : (
+              messages.map((message) => {
+                const isOwn = message.authorId === localPlayerId;
+
+                return (
+                  <article
+                    key={message.id}
+                    className={[
+                      "max-w-[88%] rounded-2xl px-4 py-3",
+                      isOwn
+                        ? darkMode
+                          ? "ml-auto bg-emerald-500/20"
+                          : "ml-auto bg-emerald-50"
+                        : darkMode
+                        ? "bg-white/10"
+                        : "bg-zinc-100",
+                    ].join(" ")}
+                  >
+                    <p
+                      className={[
+                        "text-xs font-black",
+                        isOwn
+                          ? darkMode
+                            ? "text-emerald-200"
+                            : "text-emerald-700"
+                          : darkMode
+                          ? "text-sky-200"
+                          : "text-sky-700",
+                      ].join(" ")}
+                    >
+                      {message.authorName}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold leading-5">
+                      {message.text}
+                    </p>
+                  </article>
+                );
+              })
+            )}
+          </div>
+
+          <div
+            className={[
+              "border-t p-3",
+              darkMode ? "border-white/10" : "border-zinc-200",
+            ].join(" ")}
+          >
+            <div className="flex items-end gap-2">
+              <textarea
+                value={draft}
+                onChange={(event) => onDraftChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    onSend();
+                  }
+                }}
+                placeholder="Написать сообщение..."
+                className={[
+                  "min-h-[52px] flex-1 resize-none rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition",
+                  darkMode
+                    ? "border-white/10 bg-white/5 text-white placeholder:text-white/35 focus:border-white/30"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-400",
+                ].join(" ")}
+              />
+              <Button className="min-h-[52px] px-4" variant="primary" onClick={onSend}>
+                Отпр.
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="pointer-events-auto relative">
+        {unreadCount > 0 ? (
+          <div className="absolute -top-2 right-2 rounded-full bg-red-500 px-2 py-1 text-xs font-black text-white shadow-[0_10px_28px_rgba(239,68,68,0.35)]">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={onToggle}
+          className={[
+            "grid h-16 w-16 place-items-center rounded-full border text-xl font-black shadow-[0_24px_70px_rgba(15,23,42,0.28)] transition hover:scale-[1.03]",
+            darkMode
+              ? "border-white/10 bg-emerald-500 text-white"
+              : "border-zinc-200 bg-white text-zinc-950",
+          ].join(" ")}
+        >
+          Чат
+        </button>
       </div>
     </div>
   );
@@ -2376,6 +2658,30 @@ function getGameOutcome(
       return "draw";
     default:
       return getWinner(players);
+  }
+}
+
+function parseChatMessageEvent(event: GameEvent): ChatMessage | null {
+  try {
+    const payload = JSON.parse(event.message) as {
+      authorId?: string;
+      authorName?: string;
+      text?: string;
+    };
+
+    if (!payload.authorId || !payload.authorName || !payload.text) {
+      return null;
+    }
+
+    return {
+      id: event.id,
+      authorId: payload.authorId,
+      authorName: payload.authorName,
+      text: payload.text,
+      createdAt: event.created_at,
+    };
+  } catch {
+    return null;
   }
 }
 
