@@ -1,6 +1,5 @@
 export const appConfig = {
   appName: "Abdulkadyrov Games",
   shortName: "AGames",
-  repoName: "abdulkadyrov-games",
+  repoName: "mafia",
 } as const;
-
