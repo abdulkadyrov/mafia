@@ -1011,7 +1011,11 @@ function PlayersPanel({
                 darkMode ? "bg-white/10" : "bg-zinc-100",
               ].join(" ")}
             >
-              {formatRole(role)}: {roleCounts[role]}/
+              {formatRole(role)}:{" "}
+              {role === "civilian"
+                ? roleCounts.civilian + roleCounts.unassigned
+                : roleCounts[role]}
+              /
               {getRoleLimit(role, room.settings, players.length)}
             </span>
           ))}
@@ -2790,13 +2794,17 @@ function validateManualRoleAssignments(
   settings: RoomRecord["settings"]
 ): string | null {
   const roleCounts = countAssignedRoles(players);
+  const effectiveRoleCounts: Record<PlayerRole, number> = {
+    ...roleCounts,
+    civilian: roleCounts.civilian + roleCounts.unassigned,
+    unassigned: 0,
+  };
 
-  if (roleCounts.unassigned > 0) {
-    return "В ручном режиме нужно назначить роли всем игрокам.";
-  }
-
-  for (const role of MANUAL_ASSIGNABLE_ROLES) {
-    if (roleCounts[role] !== getRoleLimit(role, settings, players.length)) {
+  for (const role of ["mafia", "doctor", "inspector", "civilian"] as const) {
+    if (
+      effectiveRoleCounts[role] !==
+      getRoleLimit(role, settings, players.length)
+    ) {
       return `Количество ролей ${formatRole(role)} не совпадает с настройками.`;
     }
   }
