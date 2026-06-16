@@ -38,10 +38,11 @@ export type AliasRoundHistory = {
 };
 
 export type AliasState = {
+  setupStep: "teams" | "pack" | "play";
   selectedPackId: string | null;
   phase: "setup" | "running" | "paused" | "round_over" | "finished";
-  scoreToWin: 25 | 50 | 70 | 100;
-  roundTimeSec: 30 | 60 | 90 | 120;
+  scoreToWin: 25 | 50 | 75 | 100;
+  roundTimeSec: 30 | 60 | 90;
   currentTeamIndex: number;
   currentWordIndex: number;
   roundEndsAt: string | null;

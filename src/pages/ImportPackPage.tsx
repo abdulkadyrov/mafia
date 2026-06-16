@@ -1,4 +1,5 @@
 import { AppLayout } from "../core/layout/AppLayout";
+import { routes } from "../core/config/routes";
 import { ImportJsonPack } from "../core/packs/ImportJsonPack";
 import { useRoom } from "../core/room/useRoom";
 
@@ -9,6 +10,7 @@ export function ImportPackPage() {
     <AppLayout
       title="Импорт JSON-паков"
       subtitle="Загрузите пакет для Millionaire или Alias"
+      backPath={room ? routes.games(room.code) : routes.gamesHub}
     >
       {room ? (
         <ImportJsonPack roomId={room.id} />
@@ -20,4 +22,3 @@ export function ImportPackPage() {
     </AppLayout>
   );
 }
-

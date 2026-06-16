@@ -169,10 +169,35 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
 
   async function choosePack(packId: string) {
     await persistAliasState({
-      ...createInitialAliasState(),
+      ...state,
+      setupStep: "pack",
       selectedPackId: packId,
+      phase: "setup",
+      currentTeamIndex: 0,
+      currentWordIndex: 0,
+      activeEntries: [],
+      rounds: [],
+      winnerTeamId: null,
       roundTimeSec: state.roundTimeSec,
       scoreToWin: state.scoreToWin,
+      remainingSeconds: state.roundTimeSec,
+    });
+  }
+
+  async function continueToPackSelection() {
+    await persistAliasState({
+      ...state,
+      setupStep: "pack",
+      phase: "setup",
+    });
+  }
+
+  async function continueToGameplay() {
+    await persistAliasState({
+      ...state,
+      setupStep: "play",
+      selectedPackId: state.selectedPackId ?? packs[0]?.id ?? "builtin-alias",
+      phase: "setup",
       remainingSeconds: state.roundTimeSec,
     });
   }
@@ -275,6 +300,7 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
     <AppLayout
       title="Alias"
       subtitle={`Комната ${roomCode}`}
+      backPath={routes.games(roomCode)}
       actions={
         <Button variant="ghost" onClick={leaveGame}>
           Выйти в главное меню
@@ -283,8 +309,133 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
     >
       <ResponsiveGameFrame>
         <div className="grid h-full gap-4">
-          {teams.length === 0 ? (
-            <TeamManager />
+          {isHost && (teams.length === 0 || state.setupStep === "teams") ? (
+            <>
+              <TeamManager />
+              {teams.length > 0 ? (
+                <Card>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                    Шаг 1
+                  </p>
+                  <h3 className="mt-2 text-2xl font-black text-white">
+                    Команды и вход по QR
+                  </h3>
+                  <p className="mt-3 text-sm font-semibold text-white/70">
+                    Создайте команды и дайте участникам войти прямо в свои команды.
+                  </p>
+                  <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {teams.map((team) => (
+                      <QrCodeCard
+                        key={team.id}
+                        title={`QR команды ${team.name}`}
+                        value={`${teamJoinBaseUrl}${routes.gameJoin(
+                          "alias",
+                          roomCode,
+                          team.id
+                        )}`}
+                      />
+                    ))}
+                  </div>
+                  <div className="mt-5">
+                    <Button variant="primary" onClick={() => void continueToPackSelection()}>
+                      Продолжить
+                    </Button>
+                  </div>
+                </Card>
+              ) : null}
+            </>
+          ) : isHost && state.setupStep === "pack" ? (
+            <Card>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                Шаг 2
+              </p>
+              <h3 className="mt-2 text-2xl font-black text-white">
+                Тема и правила раунда
+              </h3>
+              <label className="mt-5 block">
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                  Тема / пакет
+                </span>
+                <select
+                  value={state.selectedPackId ?? packs[0]?.id ?? ""}
+                  onChange={(event) => {
+                    void choosePack(event.target.value);
+                  }}
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-[#04101d] px-4 text-sm font-semibold text-white outline-none"
+                >
+                  {packs.map((pack) => (
+                    <option key={pack.id} value={pack.id}>
+                      {pack.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                    Время раунда
+                  </span>
+                  <select
+                    value={state.roundTimeSec}
+                    onChange={(event) => {
+                      void persistAliasState({
+                        ...state,
+                        setupStep: "pack",
+                        roundTimeSec: Number(event.target.value) as AliasState["roundTimeSec"],
+                        remainingSeconds: Number(event.target.value),
+                      });
+                    }}
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#04101d] px-4 text-sm font-semibold text-white outline-none"
+                  >
+                    {[30, 60, 90].map((value) => (
+                      <option key={value} value={value}>
+                        {value} секунд
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                    Очки для победы
+                  </span>
+                  <select
+                    value={state.scoreToWin}
+                    onChange={(event) => {
+                      void persistAliasState({
+                        ...state,
+                        setupStep: "pack",
+                        scoreToWin: Number(event.target.value) as AliasState["scoreToWin"],
+                      });
+                    }}
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#04101d] px-4 text-sm font-semibold text-white outline-none"
+                  >
+                    {[25, 50, 75, 100].map((value) => (
+                      <option key={value} value={value}>
+                        До {value} очков
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-lg font-black text-white">{selectedPack.title}</p>
+                <p className="mt-2 text-sm font-semibold text-white/70">
+                  {selectedPack.description}
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white/70">
+                  Слов: {selectedPack.words.length} · Раунд: {state.roundTimeSec} сек ·
+                  Победа: {state.scoreToWin} очков
+                </p>
+              </div>
+
+              <div className="mt-5">
+                <Button variant="primary" onClick={() => void continueToGameplay()}>
+                  Продолжить
+                </Button>
+              </div>
+            </Card>
           ) : isHost ? (
             <AliasHostScreen
               teams={teams}
@@ -323,10 +474,25 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
               onRemoveEntry={removeEntry}
             />
           ) : (
-            <div className="grid h-full gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-              <AliasTeamScreen team={currentTeam} word={currentWord} state={state} />
-              <ScoreBoard teams={scoreTeams} />
-            </div>
+            state.setupStep !== "play" ? (
+              <Card>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                  Подготовка
+                </p>
+                <h3 className="mt-2 text-2xl font-black text-white">
+                  {currentTeam?.name ?? "Ожидание команды"}
+                </h3>
+                <p className="mt-3 text-sm font-semibold text-white/72">
+                  Ведущий завершает настройку темы и параметров Alias. После этого
+                  начнётся раунд вашей команды.
+                </p>
+              </Card>
+            ) : (
+              <div className="grid h-full gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                <AliasTeamScreen team={currentTeam} word={currentWord} state={state} />
+                <ScoreBoard teams={scoreTeams} />
+              </div>
+            )
           )}
 
           <Card>
@@ -370,22 +536,6 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
               )}
             </div>
           </Card>
-
-          {isHost && teams.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {teams.map((team) => (
-                <QrCodeCard
-                  key={team.id}
-                  title={`QR команды ${team.name}`}
-                  value={`${teamJoinBaseUrl}${routes.gameJoin(
-                    "alias",
-                    roomCode,
-                    team.id
-                  )}`}
-                />
-              ))}
-            </div>
-          ) : null}
         </div>
       </ResponsiveGameFrame>
     </AppLayout>

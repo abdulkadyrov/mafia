@@ -52,7 +52,8 @@ const BUILTIN_PACK: MillionairePack = {
 
 function createInitialMillionaireState(): MillionaireState {
   return {
-    selectedPackId: "builtin-millionaire",
+    setupStep: "teams",
+    selectedPackId: null,
     questionIndex: 0,
     phase: "setup",
     showOptions: false,
@@ -150,8 +151,33 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
 
   async function changeSelectedPack(packId: string) {
     await syncQuestionPhase({
-      ...createInitialMillionaireState(),
+      ...state,
       selectedPackId: packId,
+      setupStep: "pack",
+      phase: "setup",
+      questionIndex: 0,
+      showOptions: false,
+      buzzedTeamId: null,
+      wrongTeamIds: [],
+      results: [],
+      lastCorrectTeamId: null,
+    });
+  }
+
+  async function continueToPackSelection() {
+    await syncQuestionPhase({
+      ...state,
+      setupStep: "pack",
+      phase: "setup",
+    });
+  }
+
+  async function continueToGameplay() {
+    await syncQuestionPhase({
+      ...state,
+      setupStep: "play",
+      selectedPackId: state.selectedPackId ?? packs[0]?.id ?? "builtin-millionaire",
+      phase: "setup",
     });
   }
 
@@ -302,6 +328,7 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     <AppLayout
       title="Кто хочет стать миллионером"
       subtitle={`Комната ${roomCode}`}
+      backPath={routes.games(roomCode)}
       actions={
         <>
           <Button
@@ -324,8 +351,91 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     >
       <ResponsiveGameFrame>
         <div className="grid h-full gap-4">
-          {teams.length === 0 ? (
-            <TeamManager />
+          {isHost && (teams.length === 0 || state.setupStep === "teams") ? (
+            <>
+              <TeamManager />
+              {teams.length > 0 ? (
+                <Card>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                    Шаг 1
+                  </p>
+                  <h3 className="mt-2 text-2xl font-black text-white">
+                    Команды и вход по QR
+                  </h3>
+                  <p className="mt-3 text-sm font-semibold text-white/70">
+                    Сначала создайте команды и дайте игрокам зайти строго в свои команды.
+                  </p>
+                  <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {teams.map((team) => (
+                      <QrCodeCard
+                        key={team.id}
+                        title={`QR команды ${team.name}`}
+                        value={`${teamJoinBaseUrl}${routes.gameJoin(
+                          "millionaire",
+                          roomCode,
+                          team.id
+                        )}`}
+                      />
+                    ))}
+                  </div>
+                  <div className="mt-5">
+                    <Button
+                      variant="primary"
+                      disabled={teams.length === 0}
+                      onClick={() => {
+                        void continueToPackSelection();
+                      }}
+                    >
+                      Продолжить
+                    </Button>
+                  </div>
+                </Card>
+              ) : null}
+            </>
+          ) : isHost && state.setupStep === "pack" ? (
+            <Card>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                Шаг 2
+              </p>
+              <h3 className="mt-2 text-2xl font-black text-white">
+                Выбор темы викторины
+              </h3>
+              <p className="mt-3 text-sm font-semibold text-white/70">
+                Темы берутся из сохранённых JSON-паков из раздела настроек.
+              </p>
+              <label className="mt-5 block">
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                  Тема / пакет
+                </span>
+                <select
+                  value={state.selectedPackId ?? packs[0]?.id ?? ""}
+                  onChange={(event) => {
+                    void changeSelectedPack(event.target.value);
+                  }}
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-[#04101d] px-4 text-sm font-semibold text-white outline-none"
+                >
+                  {packs.map((pack) => (
+                    <option key={pack.id} value={pack.id}>
+                      {pack.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-lg font-black text-white">{selectedPack.title}</p>
+                <p className="mt-2 text-sm font-semibold text-white/70">
+                  {selectedPack.description}
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white/70">
+                  Вопросов: {selectedPack.questions.length}
+                </p>
+              </div>
+              <div className="mt-5">
+                <Button variant="primary" onClick={() => void continueToGameplay()}>
+                  Продолжить
+                </Button>
+              </div>
+            </Card>
           ) : isHost ? (
             <MillionaireHostScreen
               teams={teams}
@@ -347,20 +457,35 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
               onEndGame={handleEndGame}
             />
           ) : (
-            <div className="grid h-full gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-              <MillionaireTeamScreen
-                team={currentTeam}
-                question={question}
-                state={state}
-                canBuzz={canBuzz}
-                onBuzz={() => {
-                  if (currentTeam) {
-                    void handleBuzz(currentTeam.id);
-                  }
-                }}
-              />
-              <ScoreBoard teams={teams} />
-            </div>
+            state.setupStep !== "play" ? (
+              <Card>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                  Подготовка
+                </p>
+                <h3 className="mt-2 text-2xl font-black text-white">
+                  {currentTeam?.name ?? "Ожидание команды"}
+                </h3>
+                <p className="mt-3 text-sm font-semibold text-white/72">
+                  Ведущий собирает команды и выбирает тему игры. После этого вы сразу
+                  перейдёте к викторине.
+                </p>
+              </Card>
+            ) : (
+              <div className="grid h-full gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                <MillionaireTeamScreen
+                  team={currentTeam}
+                  question={question}
+                  state={state}
+                  canBuzz={canBuzz}
+                  onBuzz={() => {
+                    if (currentTeam) {
+                      void handleBuzz(currentTeam.id);
+                    }
+                  }}
+                />
+                <ScoreBoard teams={teams} />
+              </div>
+            )
           )}
 
           {question ? (
@@ -391,21 +516,7 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
             </Card>
           ) : null}
 
-          {isHost && teams.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {teams.map((team) => (
-                <QrCodeCard
-                  key={team.id}
-                  title={`QR команды ${team.name}`}
-                  value={`${teamJoinBaseUrl}${routes.gameJoin(
-                    "millionaire",
-                    roomCode,
-                    team.id
-                  )}`}
-                />
-              ))}
-            </div>
-          ) : null}
+          {isHost && state.setupStep === "play" ? null : null}
         </div>
       </ResponsiveGameFrame>
     </AppLayout>

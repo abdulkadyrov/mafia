@@ -2,94 +2,48 @@ import { AppLayout } from "../core/layout/AppLayout";
 import { Card } from "../core/ui/Card";
 import { TeamManager } from "../core/teams/TeamManager";
 import { QrCodeCard } from "../core/qr/QrCodeCard";
-import { RoomSettingsForm } from "../features/room-settings/RoomSettingsForm";
 import { useRoom } from "../core/room/useRoom";
-import { updateRoomSettings } from "../services/roomService";
-import type { RoomSettings } from "../types/game";
 import React from "react";
-import { Button } from "../core/ui/Button";
-import { areEqualByValue } from "../utils/state";
 import { routes } from "../core/config/routes";
+import { ImportJsonPack } from "../core/packs/ImportJsonPack";
+import { Tabs } from "../core/ui/Tabs";
 
 export function SettingsPage() {
-  const { room, refresh } = useRoom();
-  const [draftSettings, setDraftSettings] = React.useState<RoomSettings | null>(null);
-  const [isSaving, setIsSaving] = React.useState(false);
-  const [statusMessage, setStatusMessage] = React.useState("");
-
-  const roomSettings = (room?.settings as RoomSettings | undefined) ?? null;
-
-  React.useEffect(() => {
-    if (!roomSettings) {
-      setDraftSettings(null);
-      return;
-    }
-
-    setDraftSettings((currentDraft) => {
-      if (!currentDraft || areEqualByValue(currentDraft, roomSettings)) {
-        return roomSettings;
-      }
-
-      return currentDraft;
-    });
-  }, [roomSettings]);
+  const { room } = useRoom();
+  const [packGame, setPackGame] = React.useState<"millionaire" | "alias">(
+    "millionaire"
+  );
 
   if (!room) {
     return <AppLayout title="Настройки комнаты">Комната не найдена.</AppLayout>;
   }
 
-  if (!draftSettings) {
-    return <AppLayout title="Настройки комнаты">Загрузка настроек...</AppLayout>;
-  }
-
   const currentRoom = room;
-  const currentDraftSettings = draftSettings;
-  const hasChanges = !areEqualByValue(currentDraftSettings, roomSettings);
   const currentGameId = currentRoom.current_game ?? "mafia";
   const roomJoinUrl =
     window.location.origin +
     import.meta.env.BASE_URL +
     `#${routes.gameJoin(currentGameId, currentRoom.code)}`;
 
-  async function handleSave() {
-    setIsSaving(true);
-    setStatusMessage("");
-
-    try {
-      await updateRoomSettings(currentRoom.id, currentDraftSettings);
-      await refresh();
-      setStatusMessage("Настройки сохранены");
-    } catch (error) {
-      setStatusMessage(
-        error instanceof Error ? error.message : "Не удалось сохранить настройки"
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
   return (
     <AppLayout
       title="Настройки комнаты"
-      subtitle="Параметры комнаты Abdulkadyrov Games"
-      actions={
-        <Button
-          disabled={!hasChanges || isSaving}
-          onClick={() => void handleSave()}
-        >
-          {isSaving ? "Сохранение..." : "Сохранить"}
-        </Button>
-      }
+      subtitle="Здесь только темы и JSON-паки для Millionaire и Alias"
+      backPath={routes.games(currentRoom.code)}
     >
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <Card>
-          <RoomSettingsForm
-            settings={currentDraftSettings}
-            onChange={setDraftSettings}
+          <Tabs
+            value={packGame}
+            onChange={setPackGame}
+            items={[
+              { value: "millionaire", label: "Millionaire" },
+              { value: "alias", label: "Alias" },
+            ]}
           />
-          {statusMessage ? (
-            <p className="mt-4 text-sm font-semibold text-white/70">{statusMessage}</p>
-          ) : null}
+          <div className="mt-4">
+            <ImportJsonPack roomId={currentRoom.id} initialGame={packGame} />
+          </div>
         </Card>
         <div className="grid gap-4">
           <TeamManager />

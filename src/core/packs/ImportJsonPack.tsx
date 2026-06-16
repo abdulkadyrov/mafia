@@ -3,18 +3,59 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Tabs } from "../ui/Tabs";
 import { saveGamePack } from "./packService";
+import { buildPackPrompt, buildPackTemplate } from "./packTemplates";
 import { validatePack } from "./packValidators";
 import type { SupportedPackGame } from "./packTypes";
 
 export function ImportJsonPack({
   roomId,
+  initialGame,
 }: {
   roomId: string;
+  initialGame?: SupportedPackGame;
 }) {
-  const [game, setGame] = React.useState<SupportedPackGame>("millionaire");
+  const [game, setGame] = React.useState<SupportedPackGame>(
+    initialGame ?? "millionaire"
+  );
+  const [packName, setPackName] = React.useState("Новая тема");
+  const [theme, setTheme] = React.useState("Общая тема");
+  const [itemCount, setItemCount] = React.useState(20);
   const [json, setJson] = React.useState("");
   const [status, setStatus] = React.useState("");
   const [errors, setErrors] = React.useState<string[]>([]);
+  const template = React.useMemo(
+    () =>
+      buildPackTemplate(game, {
+        theme,
+        itemCount,
+        title: packName || "Новая тема",
+      }),
+    [game, itemCount, packName, theme]
+  );
+  const prompt = React.useMemo(
+    () =>
+      `${buildPackPrompt(game, {
+        theme,
+        itemCount,
+        title: packName || "Новая тема",
+      })}\n\n${template}`,
+    [game, itemCount, packName, template, theme]
+  );
+
+  React.useEffect(() => {
+    if (initialGame) {
+      setGame(initialGame);
+    }
+  }, [initialGame]);
+
+  React.useEffect(() => {
+    setPackName(game === "millionaire" ? "Новая викторина" : "Новый словарь");
+    setTheme(game === "millionaire" ? "Школьные знания" : "Общие слова");
+    setItemCount(game === "millionaire" ? 20 : 50);
+    setJson("");
+    setErrors([]);
+    setStatus("");
+  }, [game]);
 
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -36,29 +77,123 @@ export function ImportJsonPack({
       return;
     }
 
+    const packTitle = packName.trim() || validation.pack.title;
+    const normalizedPack = {
+      ...validation.pack,
+      title: packTitle,
+      description:
+        "description" in validation.pack && validation.pack.description
+          ? validation.pack.description
+          : `Пак на тему "${theme}"`,
+    };
+
     await saveGamePack({
       roomId,
       gameType: game,
-      title: validation.pack.title,
-      content: validation.pack,
+      title: packTitle,
+      content: normalizedPack,
     });
     setStatus("Пак сохранён.");
   }
 
   return (
     <Card>
-      <Tabs
-        value={game}
-        onChange={setGame}
-        items={[
-          { value: "millionaire", label: "Millionaire" },
-          { value: "alias", label: "Alias" },
-        ]}
-      />
+      {!initialGame ? (
+        <Tabs
+          value={game}
+          onChange={setGame}
+          items={[
+            { value: "millionaire", label: "Millionaire" },
+            { value: "alias", label: "Alias" },
+          ]}
+        />
+      ) : null}
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <label className="block">
+          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/55">
+            Имя темы
+          </span>
+          <input
+            value={packName}
+            onChange={(event) => setPackName(event.target.value)}
+            className="h-12 w-full rounded-2xl border border-white/10 bg-[#04101d] px-4 text-sm font-semibold text-white outline-none"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/55">
+            Тема
+          </span>
+          <input
+            value={theme}
+            onChange={(event) => setTheme(event.target.value)}
+            className="h-12 w-full rounded-2xl border border-white/10 bg-[#04101d] px-4 text-sm font-semibold text-white outline-none"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/55">
+            {game === "millionaire" ? "Количество вопросов" : "Количество слов"}
+          </span>
+          <input
+            type="number"
+            min={game === "millionaire" ? 5 : 10}
+            max={200}
+            value={itemCount}
+            onChange={(event) => setItemCount(Math.max(1, Number(event.target.value) || 1))}
+            className="h-12 w-full rounded-2xl border border-white/10 bg-[#04101d] px-4 text-sm font-semibold text-white outline-none"
+          />
+        </label>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+              Промпт для нейросети
+            </p>
+            <Button
+              className="min-h-10 px-3 py-2"
+              onClick={() => {
+                void navigator.clipboard.writeText(prompt);
+                setStatus("Промпт скопирован.");
+              }}
+            >
+              Копировать промпт
+            </Button>
+          </div>
+          <textarea
+            value={prompt}
+            readOnly
+            className="min-h-[18rem] w-full rounded-2xl border border-white/10 bg-[#020b16] px-4 py-4 text-sm font-semibold text-white outline-none"
+          />
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+              Шаблон JSON
+            </p>
+            <Button
+              className="min-h-10 px-3 py-2"
+              onClick={() => {
+                void navigator.clipboard.writeText(template);
+                setStatus("Шаблон скопирован.");
+              }}
+            >
+              Копировать шаблон
+            </Button>
+          </div>
+          <textarea
+            value={template}
+            readOnly
+            className="min-h-[18rem] w-full rounded-2xl border border-white/10 bg-[#020b16] px-4 py-4 text-sm font-semibold text-white outline-none"
+          />
+        </div>
+      </div>
+
       <textarea
         value={json}
         onChange={(event) => setJson(event.target.value)}
-        placeholder="Вставьте JSON пакета"
+        placeholder="Вставьте сюда JSON, который вернула нейросеть"
         className="mt-4 min-h-[18rem] w-full rounded-2xl border border-white/10 bg-[#020b16] px-4 py-4 text-sm font-semibold text-white outline-none"
       />
       <label className="mt-4 inline-flex cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white/80 transition hover:bg-white/10">
@@ -84,7 +219,7 @@ export function ImportJsonPack({
       ) : null}
       <div className="mt-4">
         <Button variant="primary" onClick={() => void handleSave()}>
-          Проверить и сохранить
+          Сохранить
         </Button>
       </div>
     </Card>

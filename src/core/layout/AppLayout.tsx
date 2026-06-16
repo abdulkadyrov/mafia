@@ -1,15 +1,18 @@
 import { appConfig } from "../config/appConfig";
+import { FloatingBackButton } from "./FloatingBackButton";
 
 export function AppLayout({
   title,
   subtitle,
   actions,
   children,
+  backPath,
 }: {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
+  backPath?: string;
 }) {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#16324f_0%,#07111f_38%,#020617_100%)] px-4 py-4 text-white">
@@ -30,7 +33,9 @@ export function AppLayout({
         </header>
         <div className="flex-1">{children}</div>
       </div>
+      {backPath ? (
+        <FloatingBackButton onBack={() => history.back()} fallbackPath={backPath} />
+      ) : null}
     </main>
   );
 }
-

@@ -8,7 +8,8 @@ import type {
 
 export function createInitialAliasState(): AliasState {
   return {
-    selectedPackId: "builtin-alias",
+    setupStep: "teams",
+    selectedPackId: null,
     phase: "setup",
     scoreToWin: 25,
     roundTimeSec: 60,
@@ -75,5 +76,23 @@ export function getAliasWinnerTeamId(
   scores: Record<string, number>,
   scoreToWin: number
 ) {
-  return teams.find((team) => (scores[team.id] ?? 0) >= scoreToWin)?.id ?? null;
+  const rankedTeams = teams
+    .map((team) => ({
+      id: team.id,
+      score: scores[team.id] ?? 0,
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  const leader = rankedTeams[0];
+  const runnerUp = rankedTeams[1];
+
+  if (!leader || leader.score < scoreToWin) {
+    return null;
+  }
+
+  if (runnerUp && runnerUp.score === leader.score) {
+    return null;
+  }
+
+  return leader.id;
 }

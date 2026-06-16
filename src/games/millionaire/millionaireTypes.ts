@@ -34,6 +34,7 @@ export type MillionaireQuestionResult = {
 };
 
 export type MillionaireState = {
+  setupStep: "teams" | "pack" | "play";
   selectedPackId: string | null;
   questionIndex: number;
   phase: "setup" | "question" | "buzzed" | "resolved" | "finished";

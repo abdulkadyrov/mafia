@@ -55,7 +55,7 @@ export function AliasControlPanel({
           }
           className="h-11 rounded-2xl border border-white/10 bg-[#04101d] px-4 text-sm font-semibold text-white outline-none"
         >
-          {[25, 50, 70, 100].map((value) => (
+          {[25, 50, 75, 100].map((value) => (
             <option key={value} value={value}>
               До {value} очков
             </option>
@@ -69,7 +69,7 @@ export function AliasControlPanel({
           }
           className="h-11 rounded-2xl border border-white/10 bg-[#04101d] px-4 text-sm font-semibold text-white outline-none"
         >
-          {[30, 60, 90, 120].map((value) => (
+          {[30, 60, 90].map((value) => (
             <option key={value} value={value}>
               {value} сек
             </option>
