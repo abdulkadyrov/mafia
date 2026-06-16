@@ -1,4 +1,5 @@
 import React from "react";
+import { useGamePacks } from "./useGamePacks";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Tabs } from "../ui/Tabs";
@@ -23,6 +24,7 @@ export function ImportJsonPack({
   const [json, setJson] = React.useState("");
   const [status, setStatus] = React.useState("");
   const [errors, setErrors] = React.useState<string[]>([]);
+  const { packs, isLoading: packsLoading } = useGamePacks(game);
   const template = React.useMemo(
     () =>
       buildPackTemplate(game, {
@@ -94,6 +96,7 @@ export function ImportJsonPack({
       content: normalizedPack,
     });
     setStatus("Пак сохранён.");
+    setJson("");
   }
 
   return (
@@ -221,6 +224,51 @@ export function ImportJsonPack({
         <Button variant="primary" onClick={() => void handleSave()}>
           Сохранить
         </Button>
+      </div>
+
+      <div className="mt-6">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+          Сохранённые темы
+        </p>
+        <div className="mt-3 space-y-3">
+          {packsLoading ? (
+            <p className="text-sm font-semibold text-white/60">Загрузка тем...</p>
+          ) : packs.length === 0 ? (
+            <p className="text-sm font-semibold text-white/60">
+              Пока нет сохранённых тем для этой игры.
+            </p>
+          ) : (
+            packs
+              .slice()
+              .reverse()
+              .map((pack) => {
+                const content = pack.content as {
+                  description?: string;
+                  questions?: unknown[];
+                  words?: unknown[];
+                };
+                const itemCountLabel =
+                  game === "millionaire"
+                    ? `Вопросов: ${content.questions?.length ?? 0}`
+                    : `Слов: ${content.words?.length ?? 0}`;
+
+                return (
+                  <div
+                    key={pack.id}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4"
+                  >
+                    <p className="text-lg font-black text-white">{pack.title}</p>
+                    <p className="mt-2 text-sm font-semibold text-white/70">
+                      {content.description ?? "Без описания"}
+                    </p>
+                    <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-white/50">
+                      {itemCountLabel}
+                    </p>
+                  </div>
+                );
+              })
+          )}
+        </div>
       </div>
     </Card>
   );
