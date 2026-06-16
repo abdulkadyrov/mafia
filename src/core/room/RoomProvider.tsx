@@ -93,20 +93,6 @@ export function RoomProvider({
     };
   }, [refresh, room?.id]);
 
-  React.useEffect(() => {
-    if (!room?.id) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      void refresh();
-    }, 3000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [refresh, room?.id]);
-
   return (
     <RoomContext.Provider value={{ room, players, events, isLoading, refresh }}>
       {children}

@@ -101,28 +101,17 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
       return;
     }
 
-    const loadPacks = () =>
-      getGamePacksByType(room.id, "millionaire").then((records) => {
-        const importedPacks = records.map((record) => ({
-          id: record.id,
-          title: record.title,
-          content: record.content as MillionairePack,
-        }));
-        setPacks([
-          { id: "builtin-millionaire", title: BUILTIN_PACK.title, content: BUILTIN_PACK },
-          ...importedPacks,
-        ]);
-      });
-
-    void loadPacks();
-
-    const intervalId = window.setInterval(() => {
-      void loadPacks();
-    }, 3000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
+    void getGamePacksByType(room.id, "millionaire").then((records) => {
+      const importedPacks = records.map((record) => ({
+        id: record.id,
+        title: record.title,
+        content: record.content as MillionairePack,
+      }));
+      setPacks([
+        { id: "builtin-millionaire", title: BUILTIN_PACK.title, content: BUILTIN_PACK },
+        ...importedPacks,
+      ]);
+    });
   }, [room?.id]);
 
   React.useEffect(() => {
