@@ -42,19 +42,21 @@ export function SettingsPage() {
     return <AppLayout title="Настройки комнаты">Загрузка настроек...</AppLayout>;
   }
 
-  const hasChanges = !areEqualByValue(draftSettings, roomSettings);
-  const currentGameId = room.current_game ?? "mafia";
+  const currentRoom = room;
+  const currentDraftSettings = draftSettings;
+  const hasChanges = !areEqualByValue(currentDraftSettings, roomSettings);
+  const currentGameId = currentRoom.current_game ?? "mafia";
   const roomJoinUrl =
     window.location.origin +
     import.meta.env.BASE_URL +
-    `#${routes.gameJoin(currentGameId, room.code)}`;
+    `#${routes.gameJoin(currentGameId, currentRoom.code)}`;
 
   async function handleSave() {
     setIsSaving(true);
     setStatusMessage("");
 
     try {
-      await updateRoomSettings(room.id, draftSettings);
+      await updateRoomSettings(currentRoom.id, currentDraftSettings);
       await refresh();
       setStatusMessage("Настройки сохранены");
     } catch (error) {
@@ -82,7 +84,7 @@ export function SettingsPage() {
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <Card>
           <RoomSettingsForm
-            settings={draftSettings}
+            settings={currentDraftSettings}
             onChange={setDraftSettings}
           />
           {statusMessage ? (

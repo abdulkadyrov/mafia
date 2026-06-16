@@ -10,6 +10,7 @@ import { ScoreBoard } from "../../core/score/ScoreBoard";
 import { updateTeamScore } from "../../core/teams/teamService";
 import { TeamManager } from "../../core/teams/TeamManager";
 import { useTeams } from "../../core/teams/useTeams";
+import { Button } from "../../core/ui/Button";
 import { Card } from "../../core/ui/Card";
 import { updateRoomMeta } from "../../core/room/roomService";
 import { QrCodeCard } from "../../core/qr/QrCodeCard";

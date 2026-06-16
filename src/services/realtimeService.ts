@@ -46,13 +46,15 @@ function subscribeToTable<T extends Record<string, unknown>>(
     ...(filter ? { filter } : {}),
   };
 
-  channel.on(
-    "postgres_changes" as "postgres_changes",
-    config,
-    (payload) => {
-      callback(payload as RealtimePostgresChangesPayload<T>);
-    }
-  );
+  (
+    channel.on as (
+      event: "postgres_changes",
+      filter: typeof config,
+      callback: (payload: RealtimePostgresChangesPayload<T>) => void
+    ) => RealtimeChannel
+  )("postgres_changes", config, (payload: RealtimePostgresChangesPayload<T>) => {
+    callback(payload);
+  });
 
   return channel.subscribe();
 }
