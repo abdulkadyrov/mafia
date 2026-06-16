@@ -42,6 +42,20 @@ export function useGameState<T>(
     };
   }, [refresh, room?.id]);
 
+  React.useEffect(() => {
+    if (!room?.id) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refresh();
+    }, 3000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [refresh, room?.id]);
+
   const updateState = React.useCallback(
     async (nextState: T) => {
       if (!room?.id) {
@@ -61,4 +75,3 @@ export function useGameState<T>(
     updateState,
   };
 }
-

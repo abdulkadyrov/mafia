@@ -25,11 +25,15 @@ export function StartPage({
 }: {
   navigate: (path: string) => void;
 }) {
+  const defaultPlayerName = "Абдулкадыров";
   const [settings, setSettings] = useLocalStorage<RoomSettings>(
     "mafia-room-settings",
     defaultRoomSettings
   );
-  const [playerName, setPlayerName] = useLocalStorage("mafia-player-name", "");
+  const [playerName, setPlayerName] = useLocalStorage(
+    "mafia-player-name",
+    defaultPlayerName
+  );
   const [joinCode, setJoinCode] = React.useState("");
   const [errorMessage, setErrorMessage] = React.useState("");
   const [isCreating, setIsCreating] = React.useState(false);
@@ -72,6 +76,11 @@ export function StartPage({
 
     if (!cleanJoinCode) {
       setErrorMessage("Введите код комнаты");
+      return;
+    }
+
+    if (cleanJoinCode.length !== 6) {
+      setErrorMessage("Код комнаты должен состоять из 6 цифр");
       return;
     }
 
@@ -122,25 +131,30 @@ export function StartPage({
           <Card>
             <label className="block">
               <span className="mb-2 block text-sm font-black uppercase tracking-[0.16em] text-white/55">
-                Имя игрока
+                Логин
               </span>
               <Input
                 value={playerName}
                 onChange={(event) => setPlayerName(event.target.value)}
-                placeholder="Например, Тимур"
+                placeholder={defaultPlayerName}
               />
             </label>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-              <Input
-                value={joinCode}
-                onChange={(event) =>
-                  setJoinCode(normalizeRoomCode(event.target.value))
-                }
-                placeholder="Код комнаты"
-                inputMode="numeric"
-                maxLength={6}
-              />
+              <div className="space-y-2">
+                <Input
+                  value={joinCode}
+                  onChange={(event) =>
+                    setJoinCode(normalizeRoomCode(event.target.value))
+                  }
+                  placeholder="6-значный код"
+                  inputMode="numeric"
+                  maxLength={6}
+                />
+                <p className="text-xs font-semibold text-white/45">
+                  Используйте обычное имя и шестизначный цифровой код комнаты.
+                </p>
+              </div>
               <Button
                 disabled={isJoining || !isSupabaseConfigured()}
                 onClick={() => void handleJoin()}
@@ -186,4 +200,3 @@ export function StartPage({
     </main>
   );
 }
-
