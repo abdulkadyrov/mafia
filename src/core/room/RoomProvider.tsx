@@ -11,6 +11,7 @@ import type { GameEvent, Player } from "../supabase/database.types";
 import { getSessionSnapshot } from "../../utils/storage";
 import { getPlatformRoomByCode } from "./roomService";
 import type { PlatformRoom } from "./roomTypes";
+import { setIfChanged } from "../../utils/state";
 
 type RoomContextValue = {
   room: PlatformRoom | null;
@@ -36,22 +37,25 @@ export function RoomProvider({
   const [events, setEvents] = React.useState<GameEvent[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
-  const refresh = React.useCallback(async () => {
+  const refresh = React.useCallback(async (options?: { silent?: boolean }) => {
     if (!effectiveRoomCode) {
-      setRoom(null);
-      setPlayers([]);
-      setEvents([]);
+      setIfChanged(setRoom, null);
+      setIfChanged(setPlayers, []);
+      setIfChanged(setEvents, []);
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    if (!options?.silent) {
+      setIsLoading(true);
+    }
+
     const nextRoom = await getPlatformRoomByCode(effectiveRoomCode);
 
     if (!nextRoom) {
-      setRoom(null);
-      setPlayers([]);
-      setEvents([]);
+      setIfChanged(setRoom, null);
+      setIfChanged(setPlayers, []);
+      setIfChanged(setEvents, []);
       setIsLoading(false);
       return;
     }
@@ -61,9 +65,9 @@ export function RoomProvider({
       getGameEvents(nextRoom.id),
     ]);
 
-    setRoom(nextRoom);
-    setPlayers(nextPlayers);
-    setEvents(nextEvents);
+    setIfChanged(setRoom, nextRoom);
+    setIfChanged(setPlayers, nextPlayers);
+    setIfChanged(setEvents, nextEvents);
     setIsLoading(false);
   }, [effectiveRoomCode]);
 
@@ -76,14 +80,20 @@ export function RoomProvider({
       return undefined;
     }
 
-    const roomChannel = subscribeToRoom(room.id, () => {
-      void refresh();
+    const roomChannel = subscribeToRoom(room.id, (payload) => {
+      if (payload.new) {
+        setIfChanged(setRoom, payload.new as PlatformRoom);
+      }
+
+      void refresh({ silent: true });
     });
-    const playersChannel = subscribeToPlayers(room.id, () => {
-      void refresh();
+    const playersChannel = subscribeToPlayers(room.id, async () => {
+      const nextPlayers = await getPlayers(room.id);
+      setIfChanged(setPlayers, nextPlayers);
     });
-    const eventsChannel = subscribeToEvents(room.id, () => {
-      void refresh();
+    const eventsChannel = subscribeToEvents(room.id, async () => {
+      const nextEvents = await getGameEvents(room.id);
+      setIfChanged(setEvents, nextEvents);
     });
 
     return () => {

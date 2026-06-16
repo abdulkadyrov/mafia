@@ -21,6 +21,7 @@ type TableName =
   | "night_actions"
   | "votes"
   | "teams"
+  | "team_members"
   | "game_packs"
   | "game_state"
   | "score_events";
@@ -28,7 +29,7 @@ type TableName =
 function subscribeToTable<T extends Record<string, unknown>>(
   channelName: string,
   table: TableName,
-  filter: string,
+  filter: string | undefined,
   callback: (payload: RealtimePostgresChangesPayload<T>) => void
 ): RealtimeChannel {
   const supabase = getSupabaseClient();
@@ -38,14 +39,16 @@ function subscribeToTable<T extends Record<string, unknown>>(
       : `${channelName}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const channel = supabase.channel(uniqueChannelName);
 
+  const config = {
+    event: "*",
+    schema: "public",
+    table,
+    ...(filter ? { filter } : {}),
+  };
+
   channel.on(
     "postgres_changes" as "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table,
-      filter,
-    },
+    config,
     (payload) => {
       callback(payload as RealtimePostgresChangesPayload<T>);
     }
@@ -119,6 +122,12 @@ export function subscribeToTeams(
   callback: (payload: RealtimePostgresChangesPayload<Team>) => void
 ): RealtimeChannel {
   return subscribeToTable(`teams:${roomId}`, "teams", `room_id=eq.${roomId}`, callback);
+}
+
+export function subscribeToTeamMembers(
+  callback: (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => void
+): RealtimeChannel {
+  return subscribeToTable("team-members", "team_members", undefined, callback);
 }
 
 export function subscribeToGamePacks(

@@ -1,6 +1,10 @@
 import React from "react";
 import { useRoom } from "../room/useRoom";
-import { subscribeToPlayers, subscribeToTeams, unsubscribe } from "../supabase/realtime";
+import {
+  subscribeToTeamMembers,
+  subscribeToTeams,
+  unsubscribe,
+} from "../supabase/realtime";
 import {
   assignPlayerToTeam,
   createTeam,
@@ -10,6 +14,7 @@ import {
   type TeamMember,
 } from "./teamService";
 import type { Team } from "./teamTypes";
+import { setIfChanged } from "../../utils/state";
 
 export function useTeams() {
   const { room } = useRoom();
@@ -19,19 +24,18 @@ export function useTeams() {
 
   const refresh = React.useCallback(async () => {
     if (!room?.id) {
-      setTeams([]);
-      setMembers([]);
+      setIfChanged(setTeams, []);
+      setIfChanged(setMembers, []);
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
     const [nextTeams, nextMembers] = await Promise.all([
       getTeams(room.id),
       getTeamMembers(room.id),
     ]);
-    setTeams(nextTeams);
-    setMembers(nextMembers);
+    setIfChanged(setTeams, nextTeams);
+    setIfChanged(setMembers, nextMembers);
     setIsLoading(false);
   }, [room?.id]);
 
@@ -47,17 +51,13 @@ export function useTeams() {
     const teamsChannel = subscribeToTeams(room.id, () => {
       void refresh();
     });
-    const playersChannel = subscribeToPlayers(room.id, () => {
+    const membersChannel = subscribeToTeamMembers(() => {
       void refresh();
     });
-    const intervalId = window.setInterval(() => {
-      void refresh();
-    }, 2500);
 
     return () => {
       unsubscribe(teamsChannel);
-      unsubscribe(playersChannel);
-      window.clearInterval(intervalId);
+      unsubscribe(membersChannel);
     };
   }, [refresh, room?.id]);
 
@@ -88,4 +88,3 @@ export function useTeams() {
     },
   };
 }
-

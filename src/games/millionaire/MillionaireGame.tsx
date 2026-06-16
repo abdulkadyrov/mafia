@@ -17,6 +17,10 @@ import { MillionaireHostScreen } from "./MillionaireHostScreen";
 import { MillionaireTeamScreen } from "./MillionaireTeamScreen";
 import { millionaireSounds } from "./millionaireSounds";
 import type { MillionairePack, MillionaireQuestion, MillionaireState } from "./millionaireTypes";
+import { QrCodeCard } from "../../core/qr/QrCodeCard";
+import { routes } from "../../core/config/routes";
+import { clearSession } from "../../utils/storage";
+import { createHashAppPath } from "../../shared/routing/basePath";
 
 const BUILTIN_PACK: MillionairePack = {
   game: "millionaire",
@@ -128,6 +132,7 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     state.phase === "question" &&
     !state.buzzedTeamId &&
     !state.wrongTeamIds.includes(currentTeam?.id ?? "");
+  const teamJoinBaseUrl = `${window.location.origin}${import.meta.env.BASE_URL}#`;
 
   React.useEffect(() => {
     if (state.phase === "question" || state.phase === "buzzed") {
@@ -283,6 +288,12 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     });
   }
 
+  function leaveGame() {
+    clearSession();
+    history.replaceState(null, "", createHashAppPath(routes.gamesHub));
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  }
+
   if (isLoading || teamsLoading) {
     return <AppLayout title="Кто хочет стать миллионером">Загрузка...</AppLayout>;
   }
@@ -304,6 +315,9 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
             onClick={() => setSfxEnabled(!sfxEnabled)}
           >
             {sfxEnabled ? "Звуки: вкл" : "Звуки: выкл"}
+          </Button>
+          <Button variant="ghost" onClick={leaveGame}>
+            Выйти в главное меню
           </Button>
         </>
       }
@@ -375,6 +389,22 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
                 </p>
               </div>
             </Card>
+          ) : null}
+
+          {isHost && teams.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {teams.map((team) => (
+                <QrCodeCard
+                  key={team.id}
+                  title={`QR команды ${team.name}`}
+                  value={`${teamJoinBaseUrl}${routes.gameJoin(
+                    "millionaire",
+                    roomCode,
+                    team.id
+                  )}`}
+                />
+              ))}
+            </div>
           ) : null}
         </div>
       </ResponsiveGameFrame>

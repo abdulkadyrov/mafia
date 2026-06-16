@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Миллионер</title>
+  <meta name="theme-color" content="#0b0f2b" />
+
+  <style>
+    :root{
+      --bg:#0b0f2b;
+      --panel:#0f163d;
+      --stroke: rgba(255,255,255,.12);
+      --stroke2: rgba(255,255,255,.18);
+      --hover:#3045c9;
+      --accent:#ffd000;
+      --ok:#14b86a;
+      --bad:#e11d48;
+      --btn:#e6e8ff;
+      --btnText:#10122a;
+      --btnSecondary:#c7ccff;
+      --btnDanger:#ffb4c0;
+      --btnDisabled:#2b2f55;
+      --muted:#cfd5ff;
+      --text:#fff;
+      --danger:#ff2d55;
+    }
+    *{box-sizing:border-box}
+    body{
+      font-family: Arial, sans-serif;
+      margin:0;
+      color:var(--text);
+      text-align:center;
+      background:
+        radial-gradient(1000px 600px at 50% 0%, rgba(126,90,255,.35) 0%, rgba(11,15,43,1) 60%),
+        radial-gradient(900px 600px at 20% 120%, rgba(48,69,201,.20) 0%, rgba(11,15,43,0) 55%),
+        var(--bg);
+    }
+    #app{max-width:1180px;margin:0 auto;padding:18px}
+    header h1{
+      margin:6px 0 14px;
+      font-size:24px;
+      font-weight:800;
+      color:#eef0ff;
+      letter-spacing:.2px;
+    }
+    .panel{
+      background: rgba(15, 22, 61, .86);
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      padding:16px;
+      backdrop-filter: blur(8px);
+    }
+
+    #setup{text-align:left}
+    .setupGrid{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:14px;
+      align-items:start;
+    }
+    @media (max-width:980px){ .setupGrid{grid-template-columns:1fr} }
+
+    .sectionTitle{
+      font-size:14px;
+      color:var(--muted);
+      margin:0 0 8px;
+      font-weight:800;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .sectionTitle span.badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:22px;height:22px;
+      border-radius:8px;
+      background:rgba(255,255,255,.10);
+      border:1px solid var(--stroke);
+      font-weight:800;
+      color:#eef0ff;
+      font-size:12px;
+    }
+
+    .field{margin-bottom:12px}
+    label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px}
+    input, textarea, select{
+      width:100%;
+      border-radius:12px;
+      border:1px solid var(--stroke);
+      padding:10px 12px;
+      background: rgba(11,17,48,.9);
+      color:var(--text);
+      outline:none;
+    }
+    textarea{min-height:220px;resize:vertical}
+    .hintText{font-size:12.5px;color:rgba(207,213,255,.9);line-height:1.35;margin-top:6px}
+    .twoCols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:640px){ .twoCols{grid-template-columns:1fr} }
+    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+
+    button{
+      padding:10px 14px;
+      border:none;
+      border-radius:12px;
+      cursor:pointer;
+      font-size:15px;
+      background:var(--btn);
+      color:var(--btnText);
+      transition: transform .05s ease, filter .15s ease, opacity .15s ease;
+      user-select:none;
+    }
+    button:active{transform:scale(.99)}
+    button.primary{background:var(--accent)}
+    button.secondary{background:var(--btnSecondary)}
+    button.danger{background:var(--btnDanger)}
+    button:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      background:var(--btnDisabled);
+      color:#d6dbff;
+    }
+
+    #quiz{display:none}
+    #topBar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:12px;
+    }
+    .iconGroup{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .iconBtn{
+      height:36px;
+      min-width:46px;
+      padding:0 12px;
+      border-radius:999px;
+      border:1px solid var(--stroke2);
+      background:rgba(255,255,255,.08);
+      color:#e6e8ff;
+      font-weight:800;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .iconBtn:disabled{opacity:.45}
+    .iconBtn.active{
+      border-color:rgba(255,208,0,.55);
+      box-shadow:0 0 0 2px rgba(255,208,0,.12) inset;
+    }
+    .iconBtn.muted{
+      opacity:.65;
+      border-color:rgba(255,45,85,.55);
+      box-shadow:0 0 0 2px rgba(255,45,85,.10) inset;
+    }
+
+    #centerWrap{display:flex;justify-content:center;margin:8px 0 10px}
+    #centerCircle{
+      width:140px;height:140px;border-radius:999px;
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,.22), rgba(255,255,255,.08) 40%, rgba(0,0,0,.0) 70%),
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,.10), rgba(0,0,0,.0) 60%);
+      border:2px solid rgba(255,255,255,.20);
+      box-shadow:0 0 0 10px rgba(255,255,255,.05), 0 0 42px rgba(160,120,255,.18);
+      display:flex;align-items:center;justify-content:center;
+      position:relative;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    #centerCircle::before{
+      content:"";
+      position:absolute;inset:-10px;
+      border-radius:999px;
+      border:2px solid rgba(255,255,255,.08);
+      transition: border-color .2s ease;
+    }
+    #centerTime{
+      font-size:54px;
+      font-weight:900;
+      color:#f2f3ff;
+      text-shadow:0 2px 0 rgba(0,0,0,.25);
+      min-width:2ch;
+      transition: color .2s ease;
+    }
+    #centerSub{
+      position:absolute;
+      bottom:18px;
+      font-size:12px;
+      color:rgba(207,213,255,.85);
+    }
+
+    @keyframes urgencyPulse {
+      0%, 100% { box-shadow: 0 0 0 10px rgba(255,45,85,.06), 0 0 42px rgba(255,45,85,.18); }
+      50%      { box-shadow: 0 0 0 10px rgba(255,45,85,.18), 0 0 52px rgba(255,45,85,.35); }
+    }
+    .urgent #centerCircle{
+      border-color: rgba(255,45,85,.65);
+      animation: urgencyPulse .8s infinite;
+    }
+    .urgent #centerCircle::before{
+      border-color: rgba(255,45,85,.25);
+    }
+    .urgent #centerTime{ color: var(--danger); }
+    .urgent #timerTop{ color: var(--danger); }
+
+    #questionPanel{
+      border-radius:18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
+      border:1px solid rgba(255,255,255,.14);
+      padding:14px;
+    }
+    .pills{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-bottom:10px;
+    }
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:7px 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.08);
+      font-size:13px;
+      color:#e6e8ff;
+      white-space:nowrap;
+    }
+    .pill strong{color:var(--accent)}
+    #timerTop{font-weight:900}
+    #question{font-size:22px;margin:8px 0 0;color:#f2f3ff;line-height:1.25}
+
+    .answers{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:14px;
+    }
+    @media (max-width:760px){ .answers{grid-template-columns:1fr} }
+    .answer{
+      padding:14px;
+      background: rgba(28,44,140,.95);
+      border-radius:16px;
+      cursor:pointer;
+      text-align:left;
+      border:1px solid rgba(255,255,255,.12);
+      min-height:58px;
+      display:flex;
+      gap:12px;
+      align-items:center;
+      user-select:none;
+      transition: transform .05s ease, background .15s ease, opacity .2s ease;
+    }
+    .answer:hover{background:var(--hover)}
+    .answer:active{transform:scale(.995)}
+    .ansBadge{
+      width:34px;height:34px;border-radius:12px;
+      background:rgba(255,255,255,.14);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:900;color:#f4f6ff;flex:0 0 auto;
+    }
+    .answer .text{flex:1}
+
+    .hidden{visibility:hidden}
+    .selected{background:#d48806 !important;color:#111;border-color:rgba(0,0,0,.15)}
+    .correct{background:var(--ok) !important;border-color:rgba(0,0,0,.2)}
+    .wrong{background:var(--bad) !important;border-color:rgba(0,0,0,.2)}
+    .disabledAnswer{opacity:.35;pointer-events:none}
+
+    #bottomBar{
+      display:flex;
+      gap:12px;
+      justify-content:center;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    #ladderOverlay, #pauseOverlay, #modalOverlay{
+      position:fixed;inset:0;background:rgba(0,0,0,.62);
+      display:none;align-items:center;justify-content:center;
+      padding:18px;
+    }
+    #ladderOverlay{z-index:9000}
+    #pauseOverlay{z-index:9500}
+    #modalOverlay{z-index:10000}
+
+    #ladderCard, #pauseCard, .modal{
+      width:min(560px, 100%);
+      background:rgba(15,22,61,.96);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      padding:16px;
+      text-align:left;
+    }
+    #ladderCard{
+      width:min(380px,95vw);
+      max-height:min(82vh,720px);
+      overflow:auto;
+      padding:12px;
+    }
+    .ladderHeader{
+      display:flex;justify-content:space-between;align-items:center;
+      gap:10px;margin-bottom:10px;color:#f2f3ff;font-weight:900;
+    }
+    .ladderItem{
+      display:flex;justify-content:space-between;
+      padding:8px 10px;border-radius:12px;border:1px solid transparent;
+      color:#dbe0ff;font-size:14px;
+    }
+    .ladderItem.current{background:rgba(255,208,0,.18);border-color:rgba(255,208,0,.35);color:#fff}
+    .ladderItem.safe{color:#fff}
+    .ladderItem.safe .sum{color:var(--accent);font-weight:900}
+    .ladderItem .idx{opacity:.85}
+    .ladderItem .sum{color:#dbe0ff}
+
+    #pauseCard h2,.modal h2{margin:0 0 10px;font-size:18px}
+    #pauseCard p,.modal p{margin:8px 0;color:#dbe0ff;line-height:1.35}
+    .pauseBtns,.modalFooter{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
+    hr{border:0;border-top:1px solid rgba(255,255,255,.10);margin:12px 0}
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <header><h1>Кто хочет стать миллионером</h1></header>
+
+    <div id="setup" class="panel">
+      <div class="setupGrid">
+        <div class="panel" style="background:rgba(255,255,255,.04)">
+          <div class="sectionTitle"><span class="badge">1</span> Вопросы</div>
+          <div class="field">
+            <label>Формат строки</label>
+            <pre style="margin:0;background:rgba(11,17,48,.85);border:1px solid var(--stroke);padding:10px;border-radius:12px;color:#dbe0ff;overflow:auto">Вопрос|Ответ1|Ответ2|Ответ3|Ответ4|номер_правильного</pre>
+            <div class="hintText">Номер правильного ответа: 1–4. Пустые строки пропускаются.</div>
+          </div>
+          <div class="field">
+            <label>Список вопросов</label>
+            <textarea id="questionsInput">Столица Франции?|Париж|Лондон|Берлин|Мадрид|1
+2+2?|3|4|5|6|2
+Самая большая планета?|Земля|Марс|Юпитер|Венера|3</textarea>
+          </div>
+          <div class="actions">
+            <button class="secondary" id="exportBtn">Экспорт JSON</button>
+            <button class="secondary" id="importBtn">Импорт JSON</button>
+            <input id="importFile" type="file" accept="application/json" style="display:none" />
+          </div>
+        </div>
+
+        <div class="panel" style="background:rgba(255,255,255,.04)">
+          <div class="sectionTitle"><span class="badge">2</span> Настройки игры</div>
+
+          <div class="twoCols">
+            <div class="field">
+              <label>Таймер на вопрос (сек)</label>
+              <input id="questionTime" type="number" min="5" max="600" value="30" />
+            </div>
+            <div class="field">
+              <label>Таймер «Звонок другу» (сек)</label>
+              <input id="callTime" type="number" min="5" max="600" value="45" />
+            </div>
+          </div>
+
+          <div class="twoCols">
+            <div class="field">
+              <label>Задержка между появлениями ответов (сек)</label>
+              <input id="answerRevealDelay" type="number" min="0" max="10" value="0.6" step="0.1" />
+            </div>
+            <div class="field">
+              <label>Количество вопросов (0 = все, максимум 15)</label>
+              <input id="questionCount" type="number" min="0" max="50" value="0" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Несгораемые уровни (через запятую, 1..15)</label>
+            <input id="safeLevels" type="text" value="5,10" />
+          </div>
+
+          <div class="twoCols">
+            <div class="field">
+              <label>Перемешивать вопросы</label>
+              <select id="shuffleQuestions">
+                <option value="yes" selected>Да</option>
+                <option value="no">Нет</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Перемешивать ответы</label>
+              <select id="shuffleAnswers">
+                <option value="yes" selected>Да</option>
+                <option value="no">Нет</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Звуки (папка <b>audio</b>)</label>
+            <div class="hintText">
+              intro.mp3, first_question.mp3, clock_tick.mp3, lock_in.mp3, answer_locked.mp3,<br>
+              hint_5050.mp3, hint_audience.mp3, bg_audience.mp3, correct_hard.mp3, wrong.mp3, next_question.mp3
+            </div>
+            <div class="hintText">
+              Важно: открывай через http:// (локальный сервер), не file://.
+            </div>
+          </div>
+
+          <div class="actions" style="justify-content:space-between">
+            <button class="primary" id="startBtn">Начать игру</button>
+            <button class="danger" id="clearBtn">Очистить вопросы</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="quiz">
+      <div id="topBar">
+        <div class="iconGroup">
+          <button class="iconBtn" id="btnRub">РУБ.</button>
+          <button class="iconBtn" id="btnPause">⏸</button>
+          <button class="iconBtn" id="btnMute" title="Выключить/включить звук">🔊</button>
+        </div>
+
+        <div class="iconGroup">
+          <button class="iconBtn" id="hint5050">50:50</button>
+          <button class="iconBtn" id="hintRemoveOne">✂</button>
+          <button class="iconBtn" id="hintAudience">👥</button>
+          <button class="iconBtn" id="hintCall">📞</button>
+        </div>
+      </div>
+
+      <div id="centerWrap">
+        <div id="centerCircle" class="panel">
+          <div id="centerTime">—</div>
+          <div id="centerSub">сек</div>
+        </div>
+      </div>
+
+      <div id="questionPanel" class="panel">
+        <div class="pills">
+          <div class="pill">Вопрос: <strong id="questionCounter">1/1</strong></div>
+          <div class="pill">За вопрос: <strong id="prizeNow">0 ₽</strong></div>
+          <div class="pill">Несгораемая: <strong id="guarantee">0 ₽</strong></div>
+          <div class="pill">Время: <strong id="timerTop">—</strong></div>
+        </div>
+        <hr />
+        <div id="question"></div>
+      </div>
+
+      <div class="answers">
+        <div class="answer hidden" data-i="0"><div class="ansBadge">A</div><div class="text"></div></div>
+        <div class="answer hidden" data-i="1"><div class="ansBadge">B</div><div class="text"></div></div>
+        <div class="answer hidden" data-i="2"><div class="ansBadge">C</div><div class="text"></div></div>
+        <div class="answer hidden" data-i="3"><div class="ansBadge">D</div><div class="text"></div></div>
+      </div>
+
+      <div id="bottomBar">
+        <button id="confirm" class="primary" disabled>Подтвердить</button>
+        <button id="next" class="secondary" style="display:none">Дальше</button>
+        <button id="restart" class="danger">Сначала</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="ladderOverlay">
+    <div id="ladderCard">
+      <div class="ladderHeader">
+        <div>Таблица выигрышей</div>
+        <button class="secondary" id="closeLadder">Закрыть</button>
+      </div>
+      <div id="ladder"></div>
+    </div>
+  </div>
+
+  <div id="pauseOverlay">
+    <div id="pauseCard">
+      <h2>Пауза</h2>
+      <p>Игра приостановлена. Вы можете продолжить или выйти в главное меню.</p>
+      <div class="pauseBtns">
+        <button class="secondary" id="pauseContinue">Продолжить</button>
+        <button class="danger" id="pauseToMenu">В главное меню</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalOverlay">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h2 id="modalTitle"></h2>
+      <div id="modalBody"></div>
+      <div class="modalFooter" id="modalFooter"></div>
+    </div>
+  </div>
+
+<script>
+/* ===================== Helpers ===================== */
+const moneyLevels = [
+  100,200,300,500,1000,2000,4000,8000,
+  16000,32000,64000,125000,250000,500000,1000000
+];
+const $ = (s)=>document.querySelector(s);
+const $$ = (s)=>Array.from(document.querySelectorAll(s));
+const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function formatRub(n){ return (n||0).toLocaleString("ru-RU") + " ₽"; }
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+/* ===================== Modal ===================== */
+function showModal({title, bodyHtml, buttons=[], dismissible=false}){
+  $("#modalTitle").textContent = title || "";
+  $("#modalBody").innerHTML = bodyHtml || "";
+  const f = $("#modalFooter");
+  f.innerHTML = "";
+  buttons.forEach(b=>{
+    const btn = document.createElement("button");
+    btn.textContent = b.text;
+    btn.className = b.className || "secondary";
+    btn.disabled = !!b.disabled;
+    btn.addEventListener("click", ()=> b.onClick && b.onClick());
+    f.appendChild(btn);
+  });
+  const o = $("#modalOverlay");
+  o.style.display = "flex";
+  o.onclick = (e)=>{ if(dismissible && e.target===o) hideModal(); };
+}
+function hideModal(){
+  const o = $("#modalOverlay");
+  o.style.display = "none";
+  o.onclick = null;
+}
+
+/* ===================== Audio (fix intro not playing) ===================== */
+/*
+  NOTE: intro often doesn't play if:
+    - page opened via file:// (CORS/codec quirks)
+    - mp3 codec not supported or file path wrong
+    - audio not "unlocked" by user gesture (mobile)
+  We fix by:
+    1) calling unlockAudio() inside the Start button click
+    2) preloading intro (load) and playing from user gesture async
+*/
+const SOUND = {
+  INTRO: "audio/intro.mp3",
+  FIRST_QUESTION: "audio/first_question.mp3",
+  CLOCK_TICK: "audio/clock_tick.mp3",
+  LOCK_IN: "audio/lock_in.mp3",
+  ANSWER_LOCKED: "audio/answer_locked.mp3",
+  HINT_5050: "audio/hint_5050.mp3",
+  HINT_AUDIENCE: "audio/hint_audience.mp3",
+  BG_AUDIENCE: "audio/bg_audience.mp3",
+  CORRECT_HARD: "audio/correct_hard.mp3",
+  WRONG: "audio/wrong.mp3",
+  NEXT_QUESTION: "audio/next_question.mp3"
+};
+
+let muted = false;
+let audioUnlocked = false;
+
+const audio = {
+  music: new Audio(),
+  sfx: new Audio()
+};
+audio.music.loop = true;
+audio.music.volume = 0.60;
+audio.sfx.loop = false;
+audio.sfx.volume = 0.90;
+
+function applyMuteState(){
+  audio.music.muted = muted;
+  audio.sfx.muted = muted;
+  const btn = $("#btnMute");
+  if(btn){
+    btn.textContent = muted ? "🔇" : "🔊";
+    btn.classList.toggle("muted", muted);
+  }
+}
+
+function stopMusic(){
+  try{ audio.music.pause(); audio.music.currentTime = 0; }catch(e){}
+}
+async function playMusic(path){
+  if(muted) return;
+  try{
+    const abs = new URL(path, location.href).href;
+    if(audio.music.src !== abs){
+      audio.music.pause();
+      audio.music.currentTime = 0;
+      audio.music.src = path;
+    }
+    audio.music.loop = true;
+    await audio.music.play();
+  }catch(e){}
+}
+
+function stopSfx(){
+  try{ audio.sfx.pause(); audio.sfx.currentTime = 0; }catch(e){}
+}
+async function playSfx(path, {loop=false} = {}){
+  if(muted) return;
+  try{
+    audio.sfx.pause();
+    audio.sfx.currentTime = 0;
+    audio.sfx.src = path;
+    audio.sfx.loop = !!loop;
+    await audio.sfx.play();
+  }catch(e){}
+}
+
+function stopAllAudio(){
+  stopMusic();
+  stopSfx();
+}
+
+const MusicMode = { NONE:"NONE", THINK:"THINK", AUDIENCE:"AUDIENCE" };
+let currentMusicMode = MusicMode.NONE;
+async function setMusicMode(mode){
+  currentMusicMode = mode;
+  if(muted) return;
+  if(mode === MusicMode.NONE){ stopMusic(); return; }
+  if(mode === MusicMode.THINK){ await playMusic(SOUND.CLOCK_TICK); return; }
+  if(mode === MusicMode.AUDIENCE){ await playMusic(SOUND.BG_AUDIENCE); return; }
+}
+
+// Unlock audio reliably on mobile by attempting a silent/quick play inside user gesture
+async function unlockAudio(){
+  if(audioUnlocked) return;
+  try{
+    // preload intro early
+    audio.sfx.src = SOUND.INTRO;
+    audio.sfx.load();
+
+    // try a tiny play/pause to unlock (some browsers require it)
+    audio.sfx.muted = true;
+    await audio.sfx.play();
+    audio.sfx.pause();
+    audio.sfx.currentTime = 0;
+    audio.sfx.muted = muted;
+
+    audioUnlocked = true;
+  }catch(e){
+    // Even if fails, we still continue; next play attempt might succeed
+    audioUnlocked = true;
+  }
+}
+
+/* ===================== Game state ===================== */
+let allQuestions = [];
+let questions = [];
+let current = 0;
+let selected = null;
+
+let questionTime = 30;
+let callTime = 45;
+let answerRevealDelay = 0.6;
+let safeLevels = new Set([5,10]);
+
+let qInterval = null;
+let qRemaining = 0;
+
+let phase = "idle"; // idle | revealing | answering | locked | modal | paused
+const hints = { fifty:true, removeOne:true, audience:true, call:true };
+
+function canInteract(){ return phase === "answering"; }
+
+/* ===================== Parsing ===================== */
+function parseQuestionsFromTextarea(text){
+  const lines = text.split("\n").map(s=>s.trim()).filter(Boolean);
+  const out = [];
+  const errors = [];
+  lines.forEach((line, idx)=>{
+    const parts = line.split("|");
+    if(parts.length !== 6){ errors.push(`Строка ${idx+1}: нужно 6 полей через |`); return; }
+    const q = parts[0].trim();
+    const a = parts.slice(1,5).map(x=>x.trim());
+    const c = Number(parts[5].trim());
+    if(!q) errors.push(`Строка ${idx+1}: пустой вопрос`);
+    if(a.some(x=>!x)) errors.push(`Строка ${idx+1}: есть пустые ответы`);
+    if(!Number.isFinite(c) || c<1 || c>4) errors.push(`Строка ${idx+1}: номер правильного ответа 1..4`);
+    out.push({q, a, c:c-1});
+  });
+  return {questions:out, errors};
+}
+function parseSafeLevels(text){
+  const s = (text||"").trim();
+  if(!s) return new Set();
+  const nums = s.split(",").map(x=>Number(x.trim())).filter(n=>Number.isFinite(n) && n>=1 && n<=15);
+  return new Set(nums);
+}
+function buildQuestionsForGame(){
+  const count = Number($("#questionCount").value || 0);
+  const doShuffleQ = $("#shuffleQuestions").value === "yes";
+  const doShuffleA = $("#shuffleAnswers").value === "yes";
+
+  let qs = allQuestions.slice();
+  if(doShuffleQ) qs = shuffle(qs);
+  if(count>0) qs = qs.slice(0, Math.min(count, qs.length));
+  qs = qs.slice(0, Math.min(15, qs.length));
+
+  if(doShuffleA){
+    qs = qs.map(item=>{
+      const idx = shuffle([0,1,2,3]);
+      const newA = idx.map(i=>item.a[i]);
+      const newC = idx.indexOf(item.c);
+      return {q:item.q, a:newA, c:newC};
+    });
+  }
+  return qs;
+}
+
+/* ===================== Ladder ===================== */
+function renderLadder(){
+  const ladder = $("#ladder");
+  ladder.innerHTML = "";
+  for(let i=moneyLevels.length;i>=1;i--){
+    const div = document.createElement("div");
+    div.className = "ladderItem";
+    if(i === current+1) div.classList.add("current");
+    if(safeLevels.has(i)) div.classList.add("safe");
+    div.innerHTML = `<div class="idx">${i}</div><div class="sum">${formatRub(moneyLevels[i-1])}</div>`;
+    ladder.appendChild(div);
+  }
+}
+function showLadder(){
+  renderLadder();
+  $("#ladderOverlay").style.display="flex";
+  $("#btnRub").classList.add("active");
+}
+function hideLadder(){
+  $("#ladderOverlay").style.display="none";
+  $("#btnRub").classList.remove("active");
+}
+function toggleLadder(){
+  const open = $("#ladderOverlay").style.display === "flex";
+  if(open) hideLadder(); else showLadder();
+}
+
+/* ===================== Urgency ===================== */
+function setUrgencyUI(on){
+  document.body.classList.toggle("urgent", !!on);
+}
+
+/* ===================== Pause ===================== */
+function showPause(){
+  if(phase === "modal") return;
+  if(phase === "paused") return;
+  pauseQuestionTimer();
+  setUrgencyUI(false);
+  stopAllAudio();
+  phase = "paused";
+  setHintButtons();
+  $("#pauseOverlay").style.display="flex";
+}
+function hidePause(){
+  if(phase !== "paused") return;
+  $("#pauseOverlay").style.display="none";
+  const anyVisible = $$(".answer").some(a=>!a.classList.contains("hidden"));
+  phase = anyVisible ? "answering" : "idle";
+  setHintButtons();
+  if(phase === "answering"){
+    startQuestionTimer();
+    setMusicMode(MusicMode.THINK);
+  }
+}
+
+/* ===================== UI helpers ===================== */
+function currentGuaranteed(){
+  const passed = current;
+  let lastSafe = 0;
+  for(const lvl of safeLevels){
+    if(lvl <= passed) lastSafe = Math.max(lastSafe, lvl);
+  }
+  return lastSafe ? moneyLevels[lastSafe-1] : 0;
+}
+function prizeIfCorrect(){
+  return moneyLevels[current] ?? moneyLevels[moneyLevels.length-1];
+}
+function resetAnswersUI(){
+  $$(".answer").forEach(el=>{
+    el.classList.remove("selected","correct","wrong","disabledAnswer");
+    el.classList.add("hidden");
+    el.style.opacity = "";
+    el.style.pointerEvents = "auto";
+  });
+  selected = null;
+  $("#confirm").disabled = true;
+  stopSfx();
+}
+function setHeader(){
+  $("#questionCounter").textContent = `${current+1}/${questions.length}`;
+  $("#prizeNow").textContent = formatRub(prizeIfCorrect());
+  $("#guarantee").textContent = formatRub(currentGuaranteed());
+}
+function setHintButtons(){
+  $("#hint5050").disabled = !hints.fifty || !canInteract();
+  $("#hintRemoveOne").disabled = !hints.removeOne || !canInteract();
+  $("#hintAudience").disabled = !hints.audience || !canInteract();
+  $("#hintCall").disabled = !hints.call || !canInteract();
+}
+
+/* ===================== Timer ===================== */
+function stopQuestionTimer(){
+  if(qInterval){ clearInterval(qInterval); qInterval=null; }
+}
+function updateTimerUI(){
+  $("#centerTime").textContent = String(qRemaining);
+  $("#timerTop").textContent = String(qRemaining);
+  setUrgencyUI(qRemaining <= 10 && qRemaining >= 1 && phase === "answering");
+}
+function startQuestionTimer(){
+  stopQuestionTimer();
+  qRemaining = questionTime;
+  updateTimerUI();
+
+  qInterval = setInterval(async ()=>{
+    qRemaining--;
+    updateTimerUI();
+
+    if(qRemaining <= 0){
+      stopQuestionTimer();
+      setUrgencyUI(false);
+      await lockInAndStopRoundAudio();
+      onTimeout();
+    }
+  },1000);
+}
+function pauseQuestionTimer(){ stopQuestionTimer(); }
+
+/* ===================== Round audio transitions ===================== */
+async function startThinkingAudio(){
+  await setMusicMode(MusicMode.THINK);
+}
+function stopRoundMusic(){
+  setMusicMode(MusicMode.NONE);
+}
+async function lockInAndStopRoundAudio(){
+  stopRoundMusic();
+  await playSfx(SOUND.LOCK_IN);
+}
+
+/* ===================== Round flow ===================== */
+async function startRound(){
+  if(current >= questions.length){ showWin(); return; }
+
+  phase = "idle";
+  setHeader();
+  renderLadder();
+  resetAnswersUI();
+  setHintButtons();
+  $("#next").style.display="none";
+  setUrgencyUI(false);
+
+  const q = questions[current];
+  $("#question").textContent = q.q;
+  $$(".answer .text").forEach((t,i)=> t.textContent = q.a[i]);
+
+  stopRoundMusic();
+  stopSfx();
+
+  showModal({
+    title:`Вопрос ${current+1}`,
+    bodyHtml:`<p>Готовы начать?</p>`,
+    buttons:[
+      {text:"Дальше", className:"primary", onClick: async ()=>{
+        hideModal();
+        await revealAnswersAndStart();
+      }},
+      {text:"Таблица", className:"secondary", onClick: ()=> showLadder()}
+    ],
+    dismissible:false
+  });
+}
+
+async function revealAnswersAndStart(){
+  phase = "revealing";
+  setHintButtons();
+  resetAnswersUI();
+  setUrgencyUI(false);
+
+  const delayMs = Math.max(0, Number(answerRevealDelay||0)) * 1000;
+
+  await playSfx(SOUND.FIRST_QUESTION);
+
+  for(let i=0;i<4;i++){
+    $$(".answer")[i].classList.remove("hidden");
+    if(delayMs>0 && i<3) await sleep(delayMs);
+  }
+
+  phase = "answering";
+  setHintButtons();
+  startQuestionTimer();
+  await startThinkingAudio();
+}
+
+/* ===================== Answers ===================== */
+function selectAnswer(i){
+  if(!canInteract()) return;
+  const el = $$(".answer")[i];
+  if(el.classList.contains("disabledAnswer")) return;
+
+  selected = i;
+  $$(".answer").forEach(x=>x.classList.remove("selected"));
+  el.classList.add("selected");
+  $("#confirm").disabled = false;
+
+  playSfx(SOUND.ANSWER_LOCKED, {loop:true});
+}
+
+async function confirmAnswer(){
+  if(!canInteract()) return;
+  if(selected === null) return;
+
+  phase = "locked";
+  setHintButtons();
+  $("#confirm").disabled = true;
+  pauseQuestionTimer();
+  setUrgencyUI(false);
+
+  stopSfx();
+  await lockInAndStopRoundAudio();
+
+  const q = questions[current];
+  const ans = $$(".answer");
+
+  if(selected === q.c){
+    ans[selected].classList.add("correct");
+
+    await playSfx(SOUND.CORRECT_HARD);
+    await sleep(250);
+
+    current++;
+    if(current >= questions.length){ showWin(); return; }
+
+    showLadder();
+    $("#next").style.display = "inline-block";
+    phase = "idle";
+    setHintButtons();
+    $("#centerTime").textContent = "—";
+    $("#timerTop").textContent = "—";
+  }else{
+    ans[selected].classList.add("wrong");
+    ans[q.c].classList.add("correct");
+
+    await playSfx(SOUND.WRONG);
+    await sleep(200);
+
+    const fallback = currentGuaranteed();
+    phase = "modal";
+    showModal({
+      title:"Неправильно",
+      bodyHtml:`<p>Ваш несгораемый выигрыш: <b>${formatRub(fallback)}</b></p>`,
+      buttons:[
+        {text:"Сыграть снова", className:"primary", onClick: ()=>{ hideModal(); resetGame(); }},
+        {text:"Таблица", className:"secondary", onClick: ()=> showLadder()}
+      ],
+      dismissible:false
+    });
+  }
+}
+
+function onTimeout(){
+  phase = "modal";
+  const fallback = currentGuaranteed();
+  showModal({
+    title:"Время вышло",
+    bodyHtml:`<p>Ваш несгораемый выигрыш: <b>${formatRub(fallback)}</b></p>`,
+    buttons:[
+      {text:"Сыграть снова", className:"primary", onClick: ()=>{ hideModal(); resetGame(); }},
+      {text:"Таблица", className:"secondary", onClick: ()=> showLadder()}
+    ],
+    dismissible:false
+  });
+}
+
+function showWin(){
+  pauseQuestionTimer();
+  setUrgencyUI(false);
+  stopAllAudio();
+  phase = "modal";
+  const win = moneyLevels[Math.min(questions.length, moneyLevels.length)-1] || 0;
+  showModal({
+    title:"Победа!",
+    bodyHtml:`<p>Вы выиграли <b>${formatRub(win)}</b>.</p>`,
+    buttons:[
+      {text:"Сыграть снова", className:"primary", onClick: ()=>{ hideModal(); resetGame(); }},
+      {text:"Таблица", className:"secondary", onClick: ()=> showLadder()}
+    ]
+  });
+}
+
+/* ===================== Hints ===================== */
+function disableAnswer(i){
+  const el = $$(".answer")[i];
+  el.classList.add("disabledAnswer");
+  el.style.opacity = "0.35";
+  if(selected === i){
+    selected = null;
+    el.classList.remove("selected");
+    $("#confirm").disabled = true;
+    stopSfx();
+  }
+}
+async function hint5050(){
+  if(!canInteract() || !hints.fifty) return;
+  hints.fifty=false;
+  await playSfx(SOUND.HINT_5050);
+  const q = questions[current];
+  const wrong = [0,1,2,3].filter(i=>i!==q.c);
+  shuffle(wrong).slice(0,2).forEach(disableAnswer);
+  setHintButtons();
+}
+async function hintRemoveOne(){
+  if(!canInteract() || !hints.removeOne) return;
+  hints.removeOne=false;
+  await playSfx(SOUND.HINT_5050);
+  const q = questions[current];
+  const wrong = [0,1,2,3].filter(i=>i!==q.c);
+  disableAnswer(wrong[Math.floor(Math.random()*wrong.length)]);
+  setHintButtons();
+}
+async function hintAudience(){
+  if(!canInteract() || !hints.audience) return;
+  hints.audience=false;
+
+  pauseQuestionTimer();
+  setUrgencyUI(false);
+  stopSfx();
+  stopRoundMusic();
+
+  await playSfx(SOUND.HINT_AUDIENCE);
+  await setMusicMode(MusicMode.AUDIENCE);
+
+  phase="modal";
+  setHintButtons();
+
+  const q = questions[current];
+  const base=[0,0,0,0];
+  const correctBoost = 45 + Math.floor(Math.random()*26);
+  base[q.c]=correctBoost;
+  let rest=100-correctBoost;
+  const others=[0,1,2,3].filter(i=>i!==q.c);
+  let cuts=shuffle([Math.random(),Math.random(),Math.random()]);
+  const sum=cuts.reduce((a,b)=>a+b,0);
+  cuts=cuts.map(x=>x/sum);
+  others.forEach((idx,k)=> base[idx]=Math.round(rest*cuts[k]));
+  base[q.c]+= 100 - base.reduce((a,b)=>a+b,0);
+
+  const letters=["A","B","C","D"];
+  const rows=base.map((p,i)=>`
+    <div style="display:flex;gap:10px;align-items:center;margin:8px 0">
+      <div style="width:22px;font-weight:900;color:#dbe0ff">${letters[i]}</div>
+      <div style="flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);border-radius:999px;overflow:hidden">
+        <div style="width:${p}%;background:rgba(255,208,0,.55);padding:7px 10px;color:#111;font-weight:900">${p}%</div>
+      </div>
+    </div>
+  `).join("");
+
+  showModal({
+    title:"Помощь зала",
+    bodyHtml:`<p>Результаты голосования:</p>${rows}`,
+    buttons:[{text:"Продолжить", className:"primary", onClick: async ()=>{
+      hideModal();
+      stopRoundMusic();
+      phase="answering";
+      setHintButtons();
+      startQuestionTimer();
+      await startThinkingAudio();
+    }}],
+    dismissible:false
+  });
+}
+async function hintCall(){
+  if(!canInteract() || !hints.call) return;
+  hints.call=false;
+
+  pauseQuestionTimer();
+  setUrgencyUI(false);
+  stopSfx();
+  stopRoundMusic();
+  phase="modal";
+  setHintButtons();
+
+  let remaining = callTime;
+  let callInterval = null;
+
+  const q = questions[current];
+  const answers = q.a.map((t,i)=>`<li><b>${["A","B","C","D"][i]}.</b> ${escapeHtml(t)}</li>`).join("");
+
+  showModal({
+    title:"Звонок другу",
+    bodyHtml: `
+      <p>Позвоните другу в реальности и обсудите вопрос.</p>
+      <p><b>Осталось на звонок:</b> <span id="callTimer">${remaining}</span> сек</p>
+      <hr />
+      <p style="margin:0 0 8px"><b>Вопрос:</b> ${escapeHtml(q.q)}</p>
+      <ol style="margin:0;padding-left:18px;color:#dbe0ff;line-height:1.4">${answers}</ol>
+    `,
+    buttons:[{text:"Закончить звонок", className:"primary", onClick: finish}],
+    dismissible:false
+  });
+
+  callInterval = setInterval(()=>{
+    remaining--;
+    const el = $("#callTimer");
+    if(el) el.textContent = String(remaining);
+    if(remaining <= 0) finish(true);
+  },1000);
+
+  async function finish(auto=false){
+    if(callInterval){ clearInterval(callInterval); callInterval=null; }
+    hideModal();
+    phase="answering";
+    setHintButtons();
+    startQuestionTimer();
+    await startThinkingAudio();
+    if(auto) {}
+  }
+}
+
+/* ===================== Import/Export ===================== */
+function exportJSON(){
+  const {questions:qs, errors} = parseQuestionsFromTextarea($("#questionsInput").value);
+  if(errors.length){
+    showModal({
+      title:"Ошибки",
+      bodyHtml:`<ul>${errors.map(e=>`<li>${escapeHtml(e)}</li>`).join("")}</ul>`,
+      buttons:[{text:"Ок", className:"primary", onClick: ()=>hideModal()}]
+    });
+    return;
+  }
+  const data = {version:1, questions:qs};
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "millionaire-questions.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+function importJSON(){ $("#importFile").click(); }
+$("#importFile").addEventListener("change", async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if(!data || !Array.isArray(data.questions)) throw new Error("Неверный JSON формат");
+    const bad = data.questions.find(q=>!q || typeof q.q!=="string" || !Array.isArray(q.a) || q.a.length!==4 || typeof q.c!=="number");
+    if(bad) throw new Error("В JSON есть некорректный вопрос");
+    $("#questionsInput").value = data.questions.map(q=>`${q.q}|${q.a[0]}|${q.a[1]}|${q.a[2]}|${q.a[3]}|${q.c+1}`).join("\n");
+    showModal({title:"Импорт", bodyHtml:`<p>Готово.</p>`, buttons:[{text:"Ок", className:"primary", onClick: ()=>hideModal()}]});
+  }catch(err){
+    showModal({title:"Ошибка", bodyHtml:`<p>${escapeHtml(err.message||String(err))}</p>`, buttons:[{text:"Ок", className:"primary", onClick: ()=>hideModal()}]});
+  }
+});
+
+/* ===================== Start / Reset ===================== */
+function resetGame(){
+  pauseQuestionTimer();
+  setUrgencyUI(false);
+  stopAllAudio();
+
+  current=0;
+  selected=null;
+  phase="idle";
+
+  hints.fifty=true;
+  hints.removeOne=true;
+  hints.audience=true;
+  hints.call=true;
+
+  questions = buildQuestionsForGame();
+  if(questions.length===0){
+    $("#quiz").style.display="none";
+    $("#setup").style.display="block";
+    showModal({
+      title:"Нет вопросов",
+      bodyHtml:`<p>Добавьте вопросы и начните снова.</p>`,
+      buttons:[{text:"Ок", className:"primary", onClick: ()=>hideModal()}]
+    });
+    return;
+  }
+
+  $("#centerTime").textContent = "—";
+  $("#timerTop").textContent = "—";
+  setHeader();
+  renderLadder();
+  resetAnswersUI();
+  setHintButtons();
+  $("#next").style.display="none";
+
+  startRound();
+}
+
+async function startGame(){
+  questionTime = Math.max(5, Number($("#questionTime").value || 30));
+  callTime = Math.max(5, Number($("#callTime").value || 45));
+  answerRevealDelay = Math.max(0, Number($("#answerRevealDelay").value || 0));
+  safeLevels = parseSafeLevels($("#safeLevels").value);
+
+  const parsed = parseQuestionsFromTextarea($("#questionsInput").value);
+  if(parsed.errors.length){
+    showModal({
+      title:"Ошибки в вопросах",
+      bodyHtml:`<ul>${parsed.errors.map(e=>`<li>${escapeHtml(e)}</li>`).join("")}</ul>`,
+      buttons:[{text:"Ок", className:"primary", onClick: ()=>hideModal()}]
+    });
+    return;
+  }
+  allQuestions = parsed.questions;
+
+  $("#setup").style.display="none";
+  $("#quiz").style.display="block";
+
+  applyMuteState();
+
+  // unlock + then play intro (this is the key change)
+  await unlockAudio();
+  await playSfx(SOUND.INTRO);
+
+  resetGame();
+}
+
+/* ===================== Events ===================== */
+$("#startBtn").addEventListener("click", ()=> startGame());
+$("#clearBtn").addEventListener("click", ()=>{ $("#questionsInput").value=""; });
+
+$$(".answer").forEach(el=>{
+  el.addEventListener("click", ()=> selectAnswer(Number(el.dataset.i)));
+});
+$("#confirm").addEventListener("click", confirmAnswer);
+
+$("#next").addEventListener("click", async ()=>{
+  await playSfx(SOUND.NEXT_QUESTION);
+  hideLadder();
+  startRound();
+});
+
+$("#restart").addEventListener("click", ()=>{
+  showModal({
+    title:"Сначала?",
+    bodyHtml:`<p>Сбросить прогресс?</p>`,
+    buttons:[
+      {text:"Да", className:"danger", onClick: ()=>{ hideModal(); resetGame(); }},
+      {text:"Отмена", className:"secondary", onClick: ()=>hideModal()}
+    ],
+    dismissible:true
+  });
+});
+
+$("#btnRub").addEventListener("click", toggleLadder);
+$("#closeLadder").addEventListener("click", hideLadder);
+$("#ladderOverlay").addEventListener("click", (e)=>{ if(e.target === $("#ladderOverlay")) hideLadder(); });
+
+$("#btnPause").addEventListener("click", showPause);
+$("#pauseContinue").addEventListener("click", hidePause);
+$("#pauseToMenu").addEventListener("click", ()=>{
+  $("#pauseOverlay").style.display="none";
+  $("#ladderOverlay").style.display="none";
+  hideModal();
+  pauseQuestionTimer();
+  setUrgencyUI(false);
+  stopAllAudio();
+  phase="idle";
+  $("#quiz").style.display="none";
+  $("#setup").style.display="block";
+});
+
+$("#btnMute").addEventListener("click", ()=>{
+  muted = !muted;
+  applyMuteState();
+  if(muted) stopAllAudio();
+});
+
+$("#hint5050").addEventListener("click", hint5050);
+$("#hintRemoveOne").addEventListener("click", hintRemoveOne);
+$("#hintAudience").addEventListener("click", hintAudience);
+$("#hintCall").addEventListener("click", hintCall);
+
+$("#exportBtn").addEventListener("click", exportJSON);
+$("#importBtn").addEventListener("click", importJSON);
+
+window.addEventListener("keydown", (e)=>{
+  if(e.key === "Escape"){
+    if($("#pauseOverlay").style.display === "flex") hidePause();
+    else showPause();
+  }
+});
+</script>
+</body>
+</html>

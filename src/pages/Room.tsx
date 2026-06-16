@@ -34,6 +34,7 @@ import {
   unsubscribe,
 } from "../services/realtimeService";
 import { Button } from "../shared/ui/Button";
+import { setIfChanged } from "../utils/state";
 import type {
   GameEvent,
   NightAction,
@@ -113,11 +114,11 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
         const nextRoom = await getRoomByCode(normalizedRoomCode);
 
         if (!nextRoom) {
-          setRoom(null);
-          setPlayers([]);
-          setNightActions([]);
-          setGameEvents([]);
-          setVotes([]);
+          setIfChanged(setRoom, null);
+          setIfChanged(setPlayers, []);
+          setIfChanged(setNightActions, []);
+          setIfChanged(setGameEvents, []);
+          setIfChanged(setVotes, []);
           setErrorMessage("Комната не найдена");
           return;
         }
@@ -138,11 +139,11 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
               : Promise.resolve([]),
           ]);
 
-        setRoom(nextRoom);
-        setPlayers(nextPlayers);
-        setNightActions(nextNightActions);
-        setGameEvents(nextEvents);
-        setVotes(nextVotes);
+        setIfChanged(setRoom, nextRoom);
+        setIfChanged(setPlayers, nextPlayers);
+        setIfChanged(setNightActions, nextNightActions);
+        setIfChanged(setGameEvents, nextEvents);
+        setIfChanged(setVotes, nextVotes);
         setErrorMessage("");
         window.localStorage.setItem(ROOM_ID_STORAGE_KEY, nextRoom.id);
         window.localStorage.setItem(ROOM_CODE_STORAGE_KEY, nextRoom.code);
@@ -174,17 +175,31 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       }
       void loadRoomData({ silent: true });
     });
-    const playersChannel = subscribeToPlayers(room.id, () => {
-      void loadRoomData({ silent: true });
+    const playersChannel = subscribeToPlayers(room.id, async () => {
+      const nextPlayers = await getPlayers(room.id);
+      setIfChanged(setPlayers, nextPlayers);
     });
-    const nightActionsChannel = subscribeToNightActions(room.id, () => {
-      void loadRoomData({ silent: true });
+    const nightActionsChannel = subscribeToNightActions(room.id, async () => {
+      const currentRoundNumber = room.round_number || 1;
+      const nextNightActions =
+        room.phase === "lobby"
+          ? []
+          : await getNightActions(room.id, currentRoundNumber);
+      setIfChanged(setNightActions, nextNightActions);
     });
-    const eventsChannel = subscribeToEvents(room.id, () => {
-      void loadRoomData({ silent: true });
+    const eventsChannel = subscribeToEvents(room.id, async () => {
+      const nextEvents = await getGameEvents(room.id);
+      setIfChanged(setGameEvents, nextEvents);
     });
-    const votesChannel = subscribeToVotes(room.id, () => {
-      void loadRoomData({ silent: true });
+    const votesChannel = subscribeToVotes(room.id, async () => {
+      const currentRoundNumber = room.round_number || 1;
+      const voteType =
+        room.phase === "voting_confirmation" ? "runoff" : "main";
+      const nextVotes =
+        room.phase === "voting" || room.phase === "voting_confirmation"
+          ? await getVotes(room.id, currentRoundNumber, voteType)
+          : [];
+      setIfChanged(setVotes, nextVotes);
     });
 
     return () => {
@@ -194,21 +209,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       unsubscribe(eventsChannel);
       unsubscribe(votesChannel);
     };
-  }, [loadRoomData, room?.id]);
-
-  React.useEffect(() => {
-    if (!room?.id || room.phase === "lobby") {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      void loadRoomData({ silent: true });
-    }, 2500);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [loadRoomData, room?.id, room?.phase]);
+  }, [loadRoomData, room?.id, room?.phase, room?.round_number]);
 
   const selfPlayer =
     players.find((player) => player.id === localPlayerId) ?? null;

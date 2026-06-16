@@ -12,6 +12,10 @@ import { TeamManager } from "../../core/teams/TeamManager";
 import { useTeams } from "../../core/teams/useTeams";
 import { Card } from "../../core/ui/Card";
 import { updateRoomMeta } from "../../core/room/roomService";
+import { QrCodeCard } from "../../core/qr/QrCodeCard";
+import { routes } from "../../core/config/routes";
+import { clearSession } from "../../utils/storage";
+import { createHashAppPath } from "../../shared/routing/basePath";
 import { AliasHostScreen } from "./AliasHostScreen";
 import { AliasTeamScreen } from "./AliasTeamScreen";
 import {
@@ -104,6 +108,7 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
   const winnerTeamId =
     state.winnerTeamId ??
     getAliasWinnerTeamId(teams, scoreMap, state.scoreToWin);
+  const teamJoinBaseUrl = `${window.location.origin}${import.meta.env.BASE_URL}#`;
 
   React.useEffect(() => {
     if (state.phase === "running") {
@@ -250,6 +255,12 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
     });
   }
 
+  function leaveGame() {
+    clearSession();
+    history.replaceState(null, "", createHashAppPath(routes.gamesHub));
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  }
+
   if (isLoading || teamsLoading) {
     return <AppLayout title="Alias">Загрузка...</AppLayout>;
   }
@@ -260,7 +271,15 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
   }));
 
   return (
-    <AppLayout title="Alias" subtitle={`Комната ${roomCode}`}>
+    <AppLayout
+      title="Alias"
+      subtitle={`Комната ${roomCode}`}
+      actions={
+        <Button variant="ghost" onClick={leaveGame}>
+          Выйти в главное меню
+        </Button>
+      }
+    >
       <ResponsiveGameFrame>
         <div className="grid h-full gap-4">
           {teams.length === 0 ? (
@@ -350,6 +369,22 @@ export function AliasGame({ roomCode }: { roomCode: string }) {
               )}
             </div>
           </Card>
+
+          {isHost && teams.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {teams.map((team) => (
+                <QrCodeCard
+                  key={team.id}
+                  title={`QR команды ${team.name}`}
+                  value={`${teamJoinBaseUrl}${routes.gameJoin(
+                    "alias",
+                    roomCode,
+                    team.id
+                  )}`}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       </ResponsiveGameFrame>
     </AppLayout>

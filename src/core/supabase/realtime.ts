@@ -6,6 +6,7 @@ export {
   subscribeToPlayers,
   subscribeToRoom,
   subscribeToScoreEvents,
+  subscribeToTeamMembers,
   subscribeToTeams,
   subscribeToVotes,
   unsubscribe,

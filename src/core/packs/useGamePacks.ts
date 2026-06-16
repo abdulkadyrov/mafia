@@ -3,6 +3,7 @@ import { useRoom } from "../room/useRoom";
 import { subscribeToGamePacks, unsubscribe } from "../supabase/realtime";
 import { getGamePacksByType } from "../games/gameStateService";
 import type { SupportedPackGame } from "./packTypes";
+import { setIfChanged } from "../../utils/state";
 
 export function useGamePacks(gameType: SupportedPackGame) {
   const { room } = useRoom();
@@ -13,14 +14,13 @@ export function useGamePacks(gameType: SupportedPackGame) {
 
   const refresh = React.useCallback(async () => {
     if (!room?.id) {
-      setPacks([]);
+      setIfChanged(setPacks, []);
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
     const nextPacks = await getGamePacksByType(room.id, gameType);
-    setPacks(nextPacks);
+    setIfChanged(setPacks, nextPacks);
     setIsLoading(false);
   }, [gameType, room?.id]);
 

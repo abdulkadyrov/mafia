@@ -19,11 +19,15 @@ import {
 } from "../core/supabase/client";
 import { persistSession } from "../utils/storage";
 import type { RoomSettings } from "../types/game";
+import { FloatingBackButton } from "../core/layout/FloatingBackButton";
+import { gameRegistry } from "../core/games/gameRegistry";
 
 export function StartPage({
   navigate,
+  targetGameId,
 }: {
   navigate: (path: string) => void;
+  targetGameId?: string;
 }) {
   const defaultPlayerName = "Абдулкадыров";
   const [settings, setSettings] = useLocalStorage<RoomSettings>(
@@ -38,6 +42,8 @@ export function StartPage({
   const [errorMessage, setErrorMessage] = React.useState("");
   const [isCreating, setIsCreating] = React.useState(false);
   const [isJoining, setIsJoining] = React.useState(false);
+  const selectedGame =
+    gameRegistry.find((game) => game.id === targetGameId) ?? null;
   const cleanName = playerName.trim();
   const cleanJoinCode = normalizeRoomCode(joinCode);
 
@@ -58,7 +64,9 @@ export function StartPage({
         playerId: host.id,
         playerName: cleanName,
       });
-      navigate(routes.room(room.code));
+      navigate(
+        targetGameId ? routes.game(room.code, targetGameId) : routes.room(room.code)
+      );
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Не удалось создать комнату"
@@ -95,7 +103,9 @@ export function StartPage({
         playerId: player.id,
         playerName: cleanName,
       });
-      navigate(routes.room(room.code));
+      navigate(
+        targetGameId ? routes.game(room.code, targetGameId) : routes.room(room.code)
+      );
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Не удалось войти в комнату"
@@ -120,11 +130,12 @@ export function StartPage({
               {appConfig.appName}
             </p>
             <h1 className="mt-4 text-4xl font-black sm:text-5xl">
-              Платформа для комнатных игр
+              {selectedGame ? `Запуск игры: ${selectedGame.title}` : "Платформа для комнатных игр"}
             </h1>
             <p className="mt-4 max-w-xl text-sm font-semibold leading-6 text-white/72">
-              Сначала войдите в комнату, потом выбирайте игру: Mafia, Кто хочет
-              стать миллионером или Alias.
+              {selectedGame
+                ? "Создайте комнату или войдите по коду, чтобы попасть сразу в выбранную игру."
+                : "Сначала войдите в комнату, потом выбирайте игру: Mafia, Кто хочет стать миллионером или Alias."}
             </p>
           </Card>
 
@@ -197,6 +208,9 @@ export function StartPage({
           </div>
         </Card>
       </div>
+      {selectedGame ? (
+        <FloatingBackButton onBack={() => navigate(routes.gamesHub)} />
+      ) : null}
     </main>
   );
 }

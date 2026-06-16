@@ -9,10 +9,9 @@ export function MafiaGameWrapper({ roomCode }: { roomCode: string }) {
       roomCode={roomCode}
       onLeave={() => {
         clearSession();
-        history.replaceState(null, "", createHashAppPath(routes.home));
+        history.replaceState(null, "", createHashAppPath(routes.gamesHub));
         window.dispatchEvent(new HashChangeEvent("hashchange"));
       }}
     />
   );
 }
-

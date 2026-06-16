@@ -2,6 +2,7 @@ import React from "react";
 import { useRoom } from "../room/useRoom";
 import { subscribeToGameState, unsubscribe } from "../supabase/realtime";
 import { getGameState, saveGameState } from "./gameStateService";
+import { areEqualByValue, setIfChanged } from "../../utils/state";
 
 export function useGameState<T>(
   gameType: string,
@@ -13,14 +14,13 @@ export function useGameState<T>(
 
   const refresh = React.useCallback(async () => {
     if (!room?.id) {
-      setState(createInitialState());
+      setIfChanged(setState, createInitialState());
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
     const nextState = await getGameState<T>(room.id, gameType);
-    setState(nextState ?? createInitialState());
+    setIfChanged(setState, nextState ?? createInitialState());
     setIsLoading(false);
   }, [createInitialState, gameType, room?.id]);
 
@@ -49,7 +49,9 @@ export function useGameState<T>(
       }
 
       await saveGameState(room.id, gameType, nextState);
-      setState(nextState);
+      setState((currentState) =>
+        areEqualByValue(currentState, nextState) ? currentState : nextState
+      );
     },
     [gameType, room?.id]
   );
