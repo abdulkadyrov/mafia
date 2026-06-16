@@ -32,7 +32,11 @@ function subscribeToTable<T extends Record<string, unknown>>(
   callback: (payload: RealtimePostgresChangesPayload<T>) => void
 ): RealtimeChannel {
   const supabase = getSupabaseClient();
-  const channel = supabase.channel(channelName);
+  const uniqueChannelName =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? `${channelName}:${crypto.randomUUID()}`
+      : `${channelName}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  const channel = supabase.channel(uniqueChannelName);
 
   channel.on(
     "postgres_changes" as "postgres_changes",
