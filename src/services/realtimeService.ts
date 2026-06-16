@@ -10,13 +10,20 @@ import type {
   Room,
   Vote,
 } from "../types/database";
+import type { Team } from "../core/teams/teamTypes";
+import type { GamePackRecord, GameStateRecord } from "../core/games/gameStateService";
+import type { ScoreEvent } from "../core/score/scoreTypes";
 
 type TableName =
   | "rooms"
   | "players"
   | "game_events"
   | "night_actions"
-  | "votes";
+  | "votes"
+  | "teams"
+  | "game_packs"
+  | "game_state"
+  | "score_events";
 
 function subscribeToTable<T extends Record<string, unknown>>(
   channelName: string,
@@ -98,6 +105,49 @@ export function subscribeToVotes(
   return subscribeToTable(
     `votes:${roomId}`,
     "votes",
+    `room_id=eq.${roomId}`,
+    callback
+  );
+}
+
+export function subscribeToTeams(
+  roomId: string,
+  callback: (payload: RealtimePostgresChangesPayload<Team>) => void
+): RealtimeChannel {
+  return subscribeToTable(`teams:${roomId}`, "teams", `room_id=eq.${roomId}`, callback);
+}
+
+export function subscribeToGamePacks(
+  roomId: string,
+  callback: (payload: RealtimePostgresChangesPayload<GamePackRecord>) => void
+): RealtimeChannel {
+  return subscribeToTable(
+    `game-packs:${roomId}`,
+    "game_packs",
+    `room_id=eq.${roomId}`,
+    callback
+  );
+}
+
+export function subscribeToGameState(
+  roomId: string,
+  callback: (payload: RealtimePostgresChangesPayload<GameStateRecord>) => void
+): RealtimeChannel {
+  return subscribeToTable(
+    `game-state:${roomId}`,
+    "game_state",
+    `room_id=eq.${roomId}`,
+    callback
+  );
+}
+
+export function subscribeToScoreEvents(
+  roomId: string,
+  callback: (payload: RealtimePostgresChangesPayload<ScoreEvent>) => void
+): RealtimeChannel {
+  return subscribeToTable(
+    `score-events:${roomId}`,
+    "score_events",
     `room_id=eq.${roomId}`,
     callback
   );

@@ -16,6 +16,18 @@ export function ImportJsonPack({
   const [status, setStatus] = React.useState("");
   const [errors, setErrors] = React.useState<string[]>([]);
 
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const text = await file.text();
+    setJson(text);
+    setStatus(`Файл ${file.name} загружен.`);
+  }
+
   async function handleSave() {
     const validation = validatePack(game, json);
     setErrors(validation.errors);
@@ -49,6 +61,17 @@ export function ImportJsonPack({
         placeholder="Вставьте JSON пакета"
         className="mt-4 min-h-[18rem] w-full rounded-2xl border border-white/10 bg-[#020b16] px-4 py-4 text-sm font-semibold text-white outline-none"
       />
+      <label className="mt-4 inline-flex cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white/80 transition hover:bg-white/10">
+        Загрузить .json файл
+        <input
+          type="file"
+          accept=".json,application/json"
+          className="sr-only"
+          onChange={(event) => {
+            void handleFileUpload(event);
+          }}
+        />
+      </label>
       {errors.length > 0 ? (
         <div className="mt-4 space-y-2 text-sm font-semibold text-red-200">
           {errors.map((error) => (
@@ -67,4 +90,3 @@ export function ImportJsonPack({
     </Card>
   );
 }
-

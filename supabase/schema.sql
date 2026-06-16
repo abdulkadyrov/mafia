@@ -213,10 +213,18 @@ create table if not exists public.score_events (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.team_members (
+  team_id uuid not null references public.teams(id) on delete cascade,
+  player_id uuid not null references public.players(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (team_id, player_id)
+);
+
 create index if not exists teams_room_id_idx on public.teams(room_id);
 create index if not exists game_packs_room_id_idx on public.game_packs(room_id);
 create index if not exists game_packs_room_game_type_idx on public.game_packs(room_id, game_type);
 create index if not exists score_events_room_id_idx on public.score_events(room_id);
+create index if not exists team_members_player_id_idx on public.team_members(player_id);
 
 do $$
 begin
@@ -250,10 +258,19 @@ exception
 end;
 $$;
 
+do $$
+begin
+  alter publication supabase_realtime add table public.team_members;
+exception
+  when duplicate_object then null;
+end;
+$$;
+
 alter table public.teams enable row level security;
 alter table public.game_packs enable row level security;
 alter table public.game_state enable row level security;
 alter table public.score_events enable row level security;
+alter table public.team_members enable row level security;
 
 drop policy if exists "anon can select teams" on public.teams;
 create policy "anon can select teams" on public.teams for select to anon using (true);
@@ -278,3 +295,10 @@ drop policy if exists "anon can select score_events" on public.score_events;
 create policy "anon can select score_events" on public.score_events for select to anon using (true);
 drop policy if exists "anon can insert score_events" on public.score_events;
 create policy "anon can insert score_events" on public.score_events for insert to anon with check (true);
+
+drop policy if exists "anon can select team_members" on public.team_members;
+create policy "anon can select team_members" on public.team_members for select to anon using (true);
+drop policy if exists "anon can insert team_members" on public.team_members;
+create policy "anon can insert team_members" on public.team_members for insert to anon with check (true);
+drop policy if exists "anon can delete team_members" on public.team_members;
+create policy "anon can delete team_members" on public.team_members for delete to anon using (true);

@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { useAudioController } from "../core/audio/useAudioController";
 import { samplePlayerNames } from "../game/defaults";
 import { RoomSettingsForm } from "../features/room-settings/RoomSettingsForm";
 import { useCountdown } from "../hooks/useCountdown";
@@ -242,6 +243,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   );
   const winner =
     room?.phase === "game_over" ? getGameOutcome(players, gameEvents) : null;
+  const { playMusic, stopMusic } = useAudioController();
   const chatMessages = React.useMemo(
     () =>
       gameEvents
@@ -299,6 +301,30 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     lastSeenIncomingChatIdRef.current = latestIncomingMessage.id;
     setUnreadChatCount((current) => current + newIncomingCount);
   }, [chatMessages, isChatOpen, localPlayerId]);
+
+  React.useEffect(() => {
+    if (!room) {
+      stopMusic();
+      return;
+    }
+
+    if (room.phase === "night") {
+      void playMusic("bgGame");
+      return;
+    }
+
+    if (room.phase === "day") {
+      void playMusic("clockTick");
+      return;
+    }
+
+    if (room.phase === "voting" || room.phase === "voting_confirmation") {
+      void playMusic("bgAudience");
+      return;
+    }
+
+    stopMusic();
+  }, [playMusic, room, stopMusic]);
 
   async function handleStartGame() {
     if (!room) {

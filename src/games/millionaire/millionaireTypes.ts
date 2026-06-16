@@ -26,3 +26,20 @@ export type MillionairePack = {
   questions: MillionaireQuestion[];
 };
 
+export type MillionaireQuestionResult = {
+  questionId: string;
+  teamId: string;
+  result: "correct" | "wrong";
+  createdAt: string;
+};
+
+export type MillionaireState = {
+  selectedPackId: string | null;
+  questionIndex: number;
+  phase: "setup" | "question" | "buzzed" | "resolved" | "finished";
+  showOptions: boolean;
+  buzzedTeamId: string | null;
+  wrongTeamIds: string[];
+  results: MillionaireQuestionResult[];
+  lastCorrectTeamId: string | null;
+};
