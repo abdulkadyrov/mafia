@@ -9,6 +9,12 @@ export function MillionaireHostScreen({
   teams,
   state,
   question,
+  questionNumber,
+  questionCount,
+  prizeLabel,
+  guaranteeLabel,
+  timerLabel,
+  visibleAnswerCount,
   selectedManualTeamId,
   manualDelta,
   onSelectedManualTeamIdChange,
@@ -27,6 +33,12 @@ export function MillionaireHostScreen({
   teams: Team[];
   state: MillionaireState;
   question: MillionaireQuestion | null;
+  questionNumber: number;
+  questionCount: number;
+  prizeLabel: string;
+  guaranteeLabel: string;
+  timerLabel: string;
+  visibleAnswerCount: number;
   selectedManualTeamId: string;
   manualDelta: number;
   onSelectedManualTeamIdChange: (value: string) => void;
@@ -47,11 +59,24 @@ export function MillionaireHostScreen({
   return (
     <div className="grid h-full gap-4 xl:grid-cols-[1.12fr_0.88fr]">
       <div className="space-y-4 overflow-auto pr-1">
-        <MillionaireQuestionView question={question} />
-        {state.showOptions ? (
-          <MillionaireAnswerGrid question={question} />
+        <div className="millionaire-circle-wrap">
+          <div className="millionaire-circle">
+            <div className="millionaire-circle-time">{timerLabel}</div>
+            <div className="millionaire-circle-sub">сек</div>
+          </div>
+        </div>
+        <MillionaireQuestionView
+          question={question}
+          questionNumber={questionNumber}
+          questionCount={questionCount}
+          prizeLabel={prizeLabel}
+          guaranteeLabel={guaranteeLabel}
+          timerLabel={timerLabel}
+        />
+        {state.showOptions || visibleAnswerCount > 0 ? (
+          <MillionaireAnswerGrid question={question} visibleCount={visibleAnswerCount} />
         ) : (
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm font-semibold text-white/70">
+          <div className="millionaire-panel text-sm font-semibold text-white/70">
             Варианты ответа пока скрыты.
           </div>
         )}

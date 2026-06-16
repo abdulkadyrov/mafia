@@ -1,0 +1,330 @@
+.millionaire-shell {
+  --millionaire-bg: #0b0f2b;
+  --millionaire-panel: rgba(15, 22, 61, 0.86);
+  --millionaire-stroke: rgba(255, 255, 255, 0.12);
+  --millionaire-stroke-strong: rgba(255, 255, 255, 0.18);
+  --millionaire-hover: #3045c9;
+  --millionaire-accent: #ffd000;
+  --millionaire-ok: #14b86a;
+  --millionaire-bad: #e11d48;
+  --millionaire-text: #ffffff;
+  --millionaire-muted: #cfd5ff;
+}
+
+.millionaire-shell .millionaire-panel {
+  background: var(--millionaire-panel);
+  border: 1px solid var(--millionaire-stroke);
+  border-radius: 18px;
+  padding: 16px;
+  color: var(--millionaire-text);
+  backdrop-filter: blur(8px);
+}
+
+.millionaire-shell .millionaire-setup-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.millionaire-shell .millionaire-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--millionaire-muted);
+}
+
+.millionaire-shell .millionaire-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--millionaire-stroke);
+  color: #eef0ff;
+  font-size: 12px;
+}
+
+.millionaire-shell .millionaire-field {
+  margin-bottom: 12px;
+}
+
+.millionaire-shell .millionaire-field label,
+.millionaire-shell .millionaire-label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--millionaire-muted);
+}
+
+.millionaire-shell .millionaire-input,
+.millionaire-shell .millionaire-select,
+.millionaire-shell .millionaire-textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--millionaire-stroke);
+  padding: 10px 12px;
+  background: rgba(11, 17, 48, 0.9);
+  color: var(--millionaire-text);
+  outline: none;
+}
+
+.millionaire-shell .millionaire-textarea {
+  min-height: 220px;
+  resize: vertical;
+}
+
+.millionaire-shell .millionaire-two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.millionaire-shell .millionaire-hint {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: rgba(207, 213, 255, 0.9);
+}
+
+.millionaire-shell .millionaire-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.millionaire-shell .millionaire-button {
+  min-height: 42px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  background: #e6e8ff;
+  color: #10122a;
+  transition: transform 0.05s ease, filter 0.15s ease, opacity 0.15s ease;
+}
+
+.millionaire-shell .millionaire-button:active {
+  transform: scale(0.99);
+}
+
+.millionaire-shell .millionaire-button.primary {
+  background: var(--millionaire-accent);
+}
+
+.millionaire-shell .millionaire-button.secondary {
+  background: #c7ccff;
+}
+
+.millionaire-shell .millionaire-button.danger {
+  background: #ffb4c0;
+}
+
+.millionaire-shell .millionaire-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  background: #2b2f55;
+  color: #d6dbff;
+}
+
+.millionaire-shell .millionaire-pre {
+  margin: 0;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid var(--millionaire-stroke);
+  background: rgba(11, 17, 48, 0.85);
+  padding: 10px;
+  color: #dbe0ff;
+}
+
+.millionaire-shell .millionaire-question-panel {
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 14px;
+}
+
+.millionaire-shell .millionaire-pills {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.millionaire-shell .millionaire-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e6e8ff;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.millionaire-shell .millionaire-pill strong {
+  color: var(--millionaire-accent);
+}
+
+.millionaire-shell .millionaire-question-text {
+  margin: 8px 0 0;
+  color: #f2f3ff;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.millionaire-shell .millionaire-question-image {
+  margin-top: 14px;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+.millionaire-shell .millionaire-answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.millionaire-shell .millionaire-answer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(28, 44, 140, 0.95);
+  padding: 14px;
+  color: #ffffff;
+  text-align: left;
+}
+
+.millionaire-shell .millionaire-answer.hidden {
+  visibility: hidden;
+}
+
+.millionaire-shell .millionaire-answer.correct {
+  background: var(--millionaire-ok);
+}
+
+.millionaire-shell .millionaire-answer.wrong {
+  background: var(--millionaire-bad);
+}
+
+.millionaire-shell .millionaire-answer.disabled {
+  opacity: 0.35;
+}
+
+.millionaire-shell .millionaire-answer-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #f4f6ff;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+
+.millionaire-shell .millionaire-answer-text {
+  flex: 1;
+}
+
+.millionaire-shell .millionaire-circle-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0 10px;
+}
+
+.millionaire-shell .millionaire-circle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 140px;
+  height: 140px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08) 40%, rgba(0, 0, 0, 0) 70%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0) 60%);
+  box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.05), 0 0 42px rgba(160, 120, 255, 0.18);
+}
+
+.millionaire-shell .millionaire-circle-time {
+  min-width: 2ch;
+  color: #f2f3ff;
+  font-size: 54px;
+  font-weight: 900;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.millionaire-shell .millionaire-circle-sub {
+  position: absolute;
+  bottom: 18px;
+  font-size: 12px;
+  color: rgba(207, 213, 255, 0.85);
+}
+
+.millionaire-shell .millionaire-ladder {
+  display: grid;
+  gap: 8px;
+}
+
+.millionaire-shell .millionaire-ladder-item {
+  display: flex;
+  justify-content: space-between;
+  border-radius: 12px;
+  padding: 8px 10px;
+  color: #dbe0ff;
+  font-size: 14px;
+}
+
+.millionaire-shell .millionaire-ladder-item.current {
+  border: 1px solid rgba(255, 208, 0, 0.35);
+  background: rgba(255, 208, 0, 0.18);
+  color: #ffffff;
+}
+
+.millionaire-shell .millionaire-ladder-item.safe {
+  color: #ffffff;
+}
+
+.millionaire-shell .millionaire-ladder-item.safe .sum {
+  color: var(--millionaire-accent);
+  font-weight: 900;
+}
+
+@media (max-width: 980px) {
+  .millionaire-shell .millionaire-setup-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .millionaire-shell .millionaire-answers {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .millionaire-shell .millionaire-two-cols {
+    grid-template-columns: 1fr;
+  }
+}

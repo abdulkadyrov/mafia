@@ -9,12 +9,24 @@ export function MillionaireTeamScreen({
   team,
   question,
   state,
+  questionNumber,
+  questionCount,
+  prizeLabel,
+  guaranteeLabel,
+  timerLabel,
+  visibleAnswerCount,
   canBuzz,
   onBuzz,
 }: {
   team: Team | null;
   question: MillionaireQuestion | null;
   state: MillionaireState;
+  questionNumber: number;
+  questionCount: number;
+  prizeLabel: string;
+  guaranteeLabel: string;
+  timerLabel: string;
+  visibleAnswerCount: number;
   canBuzz: boolean;
   onBuzz: () => void;
 }) {
@@ -33,11 +45,24 @@ export function MillionaireTeamScreen({
   return (
     <div className="grid h-full gap-4 xl:grid-cols-[1.05fr_0.95fr]">
       <div className="space-y-4 overflow-auto pr-1">
-        <MillionaireQuestionView question={question} />
-        {state.showOptions ? (
-          <MillionaireAnswerGrid question={question} />
+        <div className="millionaire-circle-wrap">
+          <div className="millionaire-circle">
+            <div className="millionaire-circle-time">{timerLabel}</div>
+            <div className="millionaire-circle-sub">сек</div>
+          </div>
+        </div>
+        <MillionaireQuestionView
+          question={question}
+          questionNumber={questionNumber}
+          questionCount={questionCount}
+          prizeLabel={prizeLabel}
+          guaranteeLabel={guaranteeLabel}
+          timerLabel={timerLabel}
+        />
+        {state.showOptions || visibleAnswerCount > 0 ? (
+          <MillionaireAnswerGrid question={question} visibleCount={visibleAnswerCount} />
         ) : (
-          <Card className="text-white/72">Варианты ответа пока скрыты.</Card>
+          <div className="millionaire-panel text-white/72">Варианты ответа пока скрыты.</div>
         )}
       </div>
       <div className="grid gap-4 overflow-auto pr-1">

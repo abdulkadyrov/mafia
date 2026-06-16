@@ -26,6 +26,16 @@ export type MillionairePack = {
   questions: MillionaireQuestion[];
 };
 
+export type MillionaireGameConfig = {
+  questionTime: number;
+  callTime: number;
+  answerRevealDelay: number;
+  questionCount: number;
+  safeLevels: number[];
+  shuffleQuestions: boolean;
+  shuffleAnswers: boolean;
+};
+
 export type MillionaireQuestionResult = {
   questionId: string;
   teamId: string;
@@ -44,4 +54,9 @@ export type MillionaireState = {
   wrongTeamIds: string[];
   results: MillionaireQuestionResult[];
   lastCorrectTeamId: string | null;
+  preparedQuestions: MillionaireQuestion[];
+  gameConfig: MillionaireGameConfig;
+  revealStartedAt: string | null;
+  timerStartedAt: string | null;
+  timerDurationSeconds: number | null;
 };

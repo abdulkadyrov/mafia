@@ -24,6 +24,8 @@ import { routes } from "../../core/config/routes";
 import { getLocalGamePacksByType } from "../../core/packs/localPackLibrary";
 import { clearSession } from "../../utils/storage";
 import { createHashAppPath } from "../../shared/routing/basePath";
+import "./millionaireClassic.css";
+import type { MillionaireGameConfig } from "./millionaireTypes";
 
 const BUILTIN_PACK: MillionairePack = {
   game: "millionaire",
@@ -65,20 +67,109 @@ function createInitialMillionaireState(): MillionaireState {
     wrongTeamIds: [],
     results: [],
     lastCorrectTeamId: null,
+    preparedQuestions: [],
+    gameConfig: {
+      questionTime: 30,
+      callTime: 45,
+      answerRevealDelay: 0.6,
+      questionCount: 0,
+      safeLevels: [5, 10],
+      shuffleQuestions: true,
+      shuffleAnswers: true,
+    },
+    revealStartedAt: null,
+    timerStartedAt: null,
+    timerDurationSeconds: null,
   };
+}
+
+function shuffleArray<T>(items: T[]) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
+function normalizeMillionaireState(input: MillionaireState): MillionaireState {
+  const initialState = createInitialMillionaireState();
+
+  return {
+    ...initialState,
+    ...input,
+    preparedQuestions: input.preparedQuestions ?? initialState.preparedQuestions,
+    gameConfig: {
+      ...initialState.gameConfig,
+      ...input.gameConfig,
+      safeLevels: input.gameConfig?.safeLevels ?? initialState.gameConfig.safeLevels,
+    },
+    revealStartedAt: input.revealStartedAt ?? null,
+    timerStartedAt: input.timerStartedAt ?? null,
+    timerDurationSeconds: input.timerDurationSeconds ?? null,
+  };
+}
+
+function formatRubles(value: number) {
+  return `${value.toLocaleString("ru-RU")} ₽`;
+}
+
+function buildPreparedQuestions(
+  pack: MillionairePack,
+  config: MillionaireGameConfig
+): MillionaireQuestion[] {
+  const requestedCount = Math.max(0, Number(config.questionCount || 0));
+  let nextQuestions = [...pack.questions];
+
+  if (config.shuffleQuestions) {
+    nextQuestions = shuffleArray(nextQuestions);
+  }
+
+  if (requestedCount > 0) {
+    nextQuestions = nextQuestions.slice(0, requestedCount);
+  }
+
+  return nextQuestions.slice(0, 15).map((question, questionIndex) => {
+    const options = config.shuffleAnswers
+      ? shuffleArray(question.options).map((option, optionIndex) => ({
+          ...option,
+          id: ["a", "b", "c", "d"][optionIndex] ?? option.id,
+        }))
+      : question.options.map((option, optionIndex) => ({
+          ...option,
+          id: ["a", "b", "c", "d"][optionIndex] ?? option.id,
+        }));
+
+    const correctOption = options.find(
+      (option) =>
+        option.text ===
+        question.options.find((sourceOption) => sourceOption.id === question.correctOptionId)?.text
+    );
+
+    return {
+      ...question,
+      level: questionIndex + 1,
+      options,
+      correctOptionId: correctOption?.id ?? options[0]?.id ?? "a",
+    };
+  });
 }
 
 export function MillionaireGame({ roomCode }: { roomCode: string }) {
   const { room } = useRoom();
   const { currentPlayer } = usePlayer();
   const { teams, members, isLoading: teamsLoading, refresh: refreshTeams } = useTeams();
-  const { state, updateState, isLoading } = useGameState<MillionaireState>(
+  const { state: rawState, updateState, isLoading } = useGameState<MillionaireState>(
     "millionaire",
     createInitialMillionaireState
   );
+  const state = React.useMemo(() => normalizeMillionaireState(rawState), [rawState]);
   const [packs, setPacks] = React.useState<
     Array<{ id: string; title: string; content: MillionairePack }>
   >([{ id: "builtin-millionaire", title: BUILTIN_PACK.title, content: BUILTIN_PACK }]);
+  const [draftConfig, setDraftConfig] = React.useState<MillionaireGameConfig>(
+    createInitialMillionaireState().gameConfig
+  );
   const [manualTeamId, setManualTeamId] = React.useState("");
   const [manualDelta, setManualDelta] = React.useState(100);
   const {
@@ -135,15 +226,27 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     }
   }, [manualTeamId, teams]);
 
+  React.useEffect(() => {
+    setDraftConfig(state.gameConfig);
+  }, [state.gameConfig]);
+
   const selectedPack =
     packs.find((pack) => pack.id === state.selectedPackId)?.content ?? BUILTIN_PACK;
-  const question = selectedPack.questions[state.questionIndex] ?? null;
+  const preparedQuestions =
+    state.preparedQuestions.length > 0
+      ? state.preparedQuestions
+      : buildPreparedQuestions(selectedPack, state.gameConfig);
+  const question = preparedQuestions[state.questionIndex] ?? null;
   const canBuzz =
     Boolean(currentTeam) &&
     state.phase === "question" &&
     !state.buzzedTeamId &&
     !state.wrongTeamIds.includes(currentTeam?.id ?? "");
   const teamJoinBaseUrl = `${window.location.origin}${import.meta.env.BASE_URL}#`;
+  const previewQuestions = React.useMemo(
+    () => buildPreparedQuestions(selectedPack, draftConfig),
+    [draftConfig, selectedPack]
+  );
 
   React.useEffect(() => {
     if (state.phase === "question" || state.phase === "buzzed") {
@@ -153,6 +256,87 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
 
     stopMusic();
   }, [playMusic, state.phase, stopMusic]);
+
+  const [nowTick, setNowTick] = React.useState(() => Date.now());
+
+  React.useEffect(() => {
+    if (
+      !(state.phase === "question" || state.phase === "buzzed") ||
+      !state.timerStartedAt
+    ) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setNowTick(Date.now());
+    }, 250);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [state.phase, state.timerStartedAt]);
+
+  const currentPrize = question?.points ?? 0;
+  const currentGuarantee = React.useMemo(() => {
+    const eligibleSafeLevels = [...state.gameConfig.safeLevels]
+      .sort((left, right) => left - right)
+      .filter((level) => level <= state.questionIndex);
+    const lastSafeLevel = eligibleSafeLevels[eligibleSafeLevels.length - 1];
+
+    if (!lastSafeLevel) {
+      return 0;
+    }
+
+    return preparedQuestions[lastSafeLevel - 1]?.points ?? 0;
+  }, [preparedQuestions, state.gameConfig.safeLevels, state.questionIndex]);
+
+  const visibleAnswerCount = React.useMemo(() => {
+    if (state.showOptions) {
+      return 4;
+    }
+
+    if (!state.revealStartedAt) {
+      return 0;
+    }
+
+    if (state.gameConfig.answerRevealDelay <= 0) {
+      return 4;
+    }
+
+    const elapsedMs = Math.max(0, nowTick - new Date(state.revealStartedAt).getTime());
+    const visibleCount =
+      1 + Math.floor(elapsedMs / (state.gameConfig.answerRevealDelay * 1000));
+
+    return Math.max(0, Math.min(4, visibleCount));
+  }, [nowTick, state.gameConfig.answerRevealDelay, state.revealStartedAt, state.showOptions]);
+
+  const timerRemaining = React.useMemo(() => {
+    if (!state.timerStartedAt || !state.timerDurationSeconds) {
+      return null;
+    }
+
+    const elapsedMs = Math.max(0, nowTick - new Date(state.timerStartedAt).getTime());
+    const nextValue = Math.max(
+      0,
+      Math.ceil(state.timerDurationSeconds - elapsedMs / 1000)
+    );
+
+    return nextValue;
+  }, [nowTick, state.timerDurationSeconds, state.timerStartedAt]);
+
+  React.useEffect(() => {
+    if (!isHost || timerRemaining !== 0 || state.phase !== "question") {
+      return;
+    }
+
+    void syncQuestionPhase({
+      ...state,
+      phase: "resolved",
+      buzzedTeamId: null,
+      timerStartedAt: null,
+      timerDurationSeconds: null,
+    });
+  }, [isHost, state, timerRemaining]);
 
   async function syncQuestionPhase(nextState: MillionaireState) {
     await updateState(nextState);
@@ -192,11 +376,23 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
   }
 
   async function continueToGameplay() {
+    const nextQuestions = buildPreparedQuestions(selectedPack, draftConfig);
+
     await syncQuestionPhase({
       ...state,
       setupStep: "play",
       selectedPackId: state.selectedPackId ?? packs[0]?.id ?? "builtin-millionaire",
+      preparedQuestions: nextQuestions,
+      gameConfig: draftConfig,
       phase: "setup",
+      questionIndex: 0,
+      showOptions: false,
+      buzzedTeamId: null,
+      wrongTeamIds: [],
+      lastCorrectTeamId: null,
+      revealStartedAt: null,
+      timerStartedAt: null,
+      timerDurationSeconds: null,
     });
   }
 
@@ -208,6 +404,9 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
       showOptions: false,
       buzzedTeamId: null,
       wrongTeamIds: [],
+      revealStartedAt: new Date().toISOString(),
+      timerStartedAt: new Date().toISOString(),
+      timerDurationSeconds: state.gameConfig.questionTime,
     });
   }
 
@@ -280,6 +479,7 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
       phase: state.setupMode === "single" || everyoneTried ? "resolved" : "question",
       buzzedTeamId: null,
       wrongTeamIds: nextWrongTeamIds,
+      timerStartedAt: state.setupMode === "single" || everyoneTried ? null : state.timerStartedAt,
       results: [
         ...state.results,
         {
@@ -304,7 +504,7 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     await playSfx("nextQuestion");
     const nextQuestionIndex = Math.min(
       state.questionIndex + 1,
-      Math.max(selectedPack.questions.length - 1, 0)
+      Math.max(preparedQuestions.length - 1, 0)
     );
 
     await syncQuestionPhase({
@@ -315,6 +515,9 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
       buzzedTeamId: null,
       wrongTeamIds: [],
       lastCorrectTeamId: null,
+      revealStartedAt: null,
+      timerStartedAt: null,
+      timerDurationSeconds: null,
     });
   }
 
@@ -336,6 +539,8 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     await syncQuestionPhase({
       ...state,
       phase: "finished",
+      timerStartedAt: null,
+      timerDurationSeconds: null,
     });
   }
 
@@ -375,7 +580,7 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
       }
     >
       <ResponsiveGameFrame>
-        <div className="grid h-full gap-4">
+        <div className="millionaire-shell grid h-full gap-4">
           {isHost && state.setupStep === "teams" ? (
             <>
               <Card>
@@ -465,56 +670,250 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
               ) : null}
             </>
           ) : isHost && state.setupStep === "pack" ? (
-            <Card>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
-                Шаг 2
-              </p>
-              <h3 className="mt-2 text-2xl font-black text-white">
-                Выбор темы викторины
-              </h3>
-              <p className="mt-3 text-sm font-semibold text-white/70">
-                Темы берутся из сохранённых JSON-паков из раздела настроек.
-              </p>
-              <label className="mt-5 block">
-                <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/55">
-                  Тема / пакет
-                </span>
-                <select
-                  value={state.selectedPackId ?? packs[0]?.id ?? ""}
-                  onChange={(event) => {
-                    void changeSelectedPack(event.target.value);
-                  }}
-                  className="h-12 w-full rounded-2xl border border-white/10 bg-[#04101d] px-4 text-sm font-semibold text-white outline-none"
-                >
-                  {packs.map((pack) => (
-                    <option key={pack.id} value={pack.id}>
-                      {pack.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-lg font-black text-white">{selectedPack.title}</p>
-                <p className="mt-2 text-sm font-semibold text-white/70">
-                  {selectedPack.description}
-                </p>
-                <p className="mt-2 text-sm font-semibold text-white/70">
-                  Вопросов: {selectedPack.questions.length}
-                </p>
+            <div className="millionaire-panel">
+              <div className="millionaire-setup-grid">
+                <div className="millionaire-panel bg-white/5">
+                  <div className="millionaire-section-title">
+                    <span className="millionaire-badge">1</span> Тема и вопросы
+                  </div>
+                  <div className="millionaire-field">
+                    <label className="millionaire-label">Тема / пакет</label>
+                    <select
+                      value={state.selectedPackId ?? packs[0]?.id ?? ""}
+                      onChange={(event) => {
+                        void changeSelectedPack(event.target.value);
+                      }}
+                      className="millionaire-select"
+                    >
+                      {packs.map((pack) => (
+                        <option key={pack.id} value={pack.id}>
+                          {pack.title}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="millionaire-hint">
+                      Темы берутся из сохранённых JSON-шаблонов в настройках платформы.
+                    </div>
+                  </div>
+                  <div className="millionaire-field">
+                    <label className="millionaire-label">Описание</label>
+                    <div className="millionaire-pre whitespace-pre-wrap">
+                      {selectedPack.description}
+                    </div>
+                  </div>
+                  <div className="millionaire-two-cols">
+                    <div className="millionaire-field">
+                      <label className="millionaire-label">Вопросов в паке</label>
+                      <input
+                        readOnly
+                        value={String(selectedPack.questions.length)}
+                        className="millionaire-input"
+                      />
+                    </div>
+                    <div className="millionaire-field">
+                      <label className="millionaire-label">Будет сыграно</label>
+                      <input
+                        readOnly
+                        value={String(previewQuestions.length)}
+                        className="millionaire-input"
+                      />
+                    </div>
+                  </div>
+                  <div className="millionaire-field">
+                    <label className="millionaire-label">Формат вопроса</label>
+                    <pre className="millionaire-pre">
+{`{
+  "question": "Текст вопроса",
+  "options": ["A", "B", "C", "D"],
+  "correctOptionId": "a"
+}`}
+                    </pre>
+                  </div>
+                </div>
+
+                <div className="millionaire-panel bg-white/5">
+                  <div className="millionaire-section-title">
+                    <span className="millionaire-badge">2</span> Настройки игры
+                  </div>
+
+                  <div className="millionaire-two-cols">
+                    <div className="millionaire-field">
+                      <label className="millionaire-label">Таймер на вопрос (сек)</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="600"
+                        value={draftConfig.questionTime}
+                        onChange={(event) =>
+                          setDraftConfig((currentConfig) => ({
+                            ...currentConfig,
+                            questionTime: Math.max(5, Number(event.target.value) || 5),
+                          }))
+                        }
+                        className="millionaire-input"
+                      />
+                    </div>
+                    <div className="millionaire-field">
+                      <label className="millionaire-label">Таймер звонка другу (сек)</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="600"
+                        value={draftConfig.callTime}
+                        onChange={(event) =>
+                          setDraftConfig((currentConfig) => ({
+                            ...currentConfig,
+                            callTime: Math.max(5, Number(event.target.value) || 5),
+                          }))
+                        }
+                        className="millionaire-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="millionaire-two-cols">
+                    <div className="millionaire-field">
+                      <label className="millionaire-label">
+                        Задержка между появлениями ответов (сек)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="0.1"
+                        value={draftConfig.answerRevealDelay}
+                        onChange={(event) =>
+                          setDraftConfig((currentConfig) => ({
+                            ...currentConfig,
+                            answerRevealDelay: Math.max(
+                              0,
+                              Number(event.target.value) || 0
+                            ),
+                          }))
+                        }
+                        className="millionaire-input"
+                      />
+                    </div>
+                    <div className="millionaire-field">
+                      <label className="millionaire-label">
+                        Количество вопросов (0 = все, максимум 15)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={draftConfig.questionCount}
+                        onChange={(event) =>
+                          setDraftConfig((currentConfig) => ({
+                            ...currentConfig,
+                            questionCount: Math.max(0, Number(event.target.value) || 0),
+                          }))
+                        }
+                        className="millionaire-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="millionaire-field">
+                    <label className="millionaire-label">
+                      Несгораемые уровни (через запятую, 1..15)
+                    </label>
+                    <input
+                      value={draftConfig.safeLevels.join(",")}
+                      onChange={(event) =>
+                        setDraftConfig((currentConfig) => ({
+                          ...currentConfig,
+                          safeLevels: event.target.value
+                            .split(",")
+                            .map((value) => Number(value.trim()))
+                            .filter(
+                              (value) =>
+                                Number.isFinite(value) && value >= 1 && value <= 15
+                            ),
+                        }))
+                      }
+                      className="millionaire-input"
+                    />
+                  </div>
+
+                  <div className="millionaire-two-cols">
+                    <div className="millionaire-field">
+                      <label className="millionaire-label">Перемешивать вопросы</label>
+                      <select
+                        value={draftConfig.shuffleQuestions ? "yes" : "no"}
+                        onChange={(event) =>
+                          setDraftConfig((currentConfig) => ({
+                            ...currentConfig,
+                            shuffleQuestions: event.target.value === "yes",
+                          }))
+                        }
+                        className="millionaire-select"
+                      >
+                        <option value="yes">Да</option>
+                        <option value="no">Нет</option>
+                      </select>
+                    </div>
+                    <div className="millionaire-field">
+                      <label className="millionaire-label">Перемешивать ответы</label>
+                      <select
+                        value={draftConfig.shuffleAnswers ? "yes" : "no"}
+                        onChange={(event) =>
+                          setDraftConfig((currentConfig) => ({
+                            ...currentConfig,
+                            shuffleAnswers: event.target.value === "yes",
+                          }))
+                        }
+                        className="millionaire-select"
+                      >
+                        <option value="yes">Да</option>
+                        <option value="no">Нет</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="millionaire-hint">
+                    Эти параметры взяты из логики `millionare.html` и теперь задаются
+                    прямо перед стартом комнаты.
+                  </div>
+
+                  <div className="millionaire-actions">
+                    <button
+                      type="button"
+                      className="millionaire-button primary"
+                      onClick={() => {
+                        void continueToGameplay();
+                      }}
+                    >
+                      Продолжить
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="mt-5">
-                <Button variant="primary" onClick={() => void continueToGameplay()}>
-                  Продолжить
-                </Button>
-              </div>
-            </Card>
+            </div>
           ) : isHost && state.setupMode === "single" ? (
             <div className="grid h-full gap-4">
-              <MillionaireQuestionView question={question} />
-              {state.showOptions ? (
-                <MillionaireAnswerGrid question={question} />
+              <div className="millionaire-circle-wrap">
+                <div className="millionaire-circle">
+                  <div className="millionaire-circle-time">
+                    {timerRemaining === null ? "—" : timerRemaining}
+                  </div>
+                  <div className="millionaire-circle-sub">сек</div>
+                </div>
+              </div>
+              <MillionaireQuestionView
+                question={question}
+                questionNumber={state.questionIndex + 1}
+                questionCount={preparedQuestions.length || 1}
+                prizeLabel={formatRubles(currentPrize)}
+                guaranteeLabel={formatRubles(currentGuarantee)}
+                timerLabel={timerRemaining === null ? "—" : String(timerRemaining)}
+              />
+              {state.showOptions || visibleAnswerCount > 0 ? (
+                <MillionaireAnswerGrid question={question} visibleCount={visibleAnswerCount} />
               ) : (
-                <Card className="text-white/72">Варианты ответа пока скрыты.</Card>
+                <div className="millionaire-panel text-white/72">
+                  Варианты ответа пока скрыты.
+                </div>
               )}
               <Card>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
@@ -548,6 +947,12 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
               teams={teams}
               state={state}
               question={question}
+              questionNumber={state.questionIndex + 1}
+              questionCount={preparedQuestions.length || 1}
+              prizeLabel={formatRubles(currentPrize)}
+              guaranteeLabel={formatRubles(currentGuarantee)}
+              timerLabel={timerRemaining === null ? "—" : String(timerRemaining)}
+              visibleAnswerCount={visibleAnswerCount}
               selectedManualTeamId={manualTeamId}
               manualDelta={manualDelta}
               onSelectedManualTeamIdChange={setManualTeamId}
@@ -583,6 +988,12 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
                   team={currentTeam}
                   question={question}
                   state={state}
+                  questionNumber={state.questionIndex + 1}
+                  questionCount={preparedQuestions.length || 1}
+                  prizeLabel={formatRubles(currentPrize)}
+                  guaranteeLabel={formatRubles(currentGuarantee)}
+                  timerLabel={timerRemaining === null ? "—" : String(timerRemaining)}
+                  visibleAnswerCount={visibleAnswerCount}
                   canBuzz={canBuzz}
                   onBuzz={() => {
                     if (currentTeam) {
@@ -596,7 +1007,33 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
           )}
 
           {question ? (
-            <Card className="text-white/78">
+            <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+              <div className="millionaire-panel">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
+                  Таблица выигрышей
+                </p>
+                <div className="mt-4 millionaire-ladder">
+                  {preparedQuestions.map((item, index) => {
+                    const level = index + 1;
+                    return (
+                      <div
+                        key={item.id}
+                        className={[
+                          "millionaire-ladder-item",
+                          level === state.questionIndex + 1 ? "current" : "",
+                          state.gameConfig.safeLevels.includes(level) ? "safe" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        <span>{level}</span>
+                        <span className="sum">{formatRubles(item.points)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <Card className="text-white/78">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">
                 Правильный ответ и объяснение
               </p>
@@ -620,7 +1057,8 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
                   Карта файлов лежит в [src/games/millionaire/millionaireSounds.ts].
                 </p>
               </div>
-            </Card>
+              </Card>
+            </div>
           ) : null}
 
           {isHost && state.setupStep === "play" ? null : null}

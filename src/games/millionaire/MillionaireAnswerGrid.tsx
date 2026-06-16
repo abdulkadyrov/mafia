@@ -2,25 +2,40 @@ import type { MillionaireQuestion } from "./millionaireTypes";
 
 export function MillionaireAnswerGrid({
   question,
+  visibleCount = 4,
+  disabledOptionIds = [],
+  correctOptionId,
+  wrongOptionId,
 }: {
   question: MillionaireQuestion | null;
+  visibleCount?: number;
+  disabledOptionIds?: string[];
+  correctOptionId?: string | null;
+  wrongOptionId?: string | null;
 }) {
   if (!question) {
     return null;
   }
 
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {question.options.map((option) => (
+    <div className="millionaire-answers">
+      {question.options.map((option, index) => (
         <div
           key={option.id}
-          className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-bold text-white"
+          className={[
+            "millionaire-answer",
+            index >= visibleCount ? "hidden" : "",
+            disabledOptionIds.includes(option.id) ? "disabled" : "",
+            correctOptionId === option.id ? "correct" : "",
+            wrongOptionId === option.id ? "wrong" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
-          <span className="text-amber-200">{option.id.toUpperCase()}.</span>{" "}
-          {option.text}
+          <div className="millionaire-answer-badge">{option.id.toUpperCase()}</div>
+          <div className="millionaire-answer-text">{option.text}</div>
         </div>
       ))}
     </div>
   );
 }
-
