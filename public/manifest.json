@@ -1,13 +1,13 @@
 {
-  "short_name": "Mafia",
-  "name": "Mafia LAN PWA",
-  "description": "Локальная автоматическая игра Мафия для Wi-Fi, hotspot и LAN.",
+  "short_name": "AGames",
+  "name": "Abdulkadyrov Games",
+  "description": "PWA-платформа Abdulkadyrov Games для комнатных игр.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0B0F19",
-  "theme_color": "#8B5CF6",
+  "theme_color": "#0f172a",
   "icons": [
     {
       "src": "icon.svg",

@@ -171,3 +171,110 @@ drop policy if exists "anon can select votes" on public.votes;
 create policy "anon can select votes" on public.votes for select to anon using (true);
 drop policy if exists "anon can insert votes" on public.votes;
 create policy "anon can insert votes" on public.votes for insert to anon with check (true);
+
+alter table public.rooms
+  add column if not exists title text,
+  add column if not exists current_game text;
+
+alter table public.players
+  add column if not exists device_id text;
+
+create table if not exists public.teams (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references public.rooms(id) on delete cascade,
+  name text not null,
+  color text,
+  score integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.game_packs (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references public.rooms(id) on delete cascade,
+  game_type text not null,
+  title text not null,
+  content jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.game_state (
+  room_id uuid primary key references public.rooms(id) on delete cascade,
+  game_type text not null,
+  state jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.score_events (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references public.rooms(id) on delete cascade,
+  team_id uuid not null references public.teams(id) on delete cascade,
+  delta integer not null,
+  reason text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists teams_room_id_idx on public.teams(room_id);
+create index if not exists game_packs_room_id_idx on public.game_packs(room_id);
+create index if not exists game_packs_room_game_type_idx on public.game_packs(room_id, game_type);
+create index if not exists score_events_room_id_idx on public.score_events(room_id);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.teams;
+exception
+  when duplicate_object then null;
+end;
+$$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.game_packs;
+exception
+  when duplicate_object then null;
+end;
+$$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.game_state;
+exception
+  when duplicate_object then null;
+end;
+$$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.score_events;
+exception
+  when duplicate_object then null;
+end;
+$$;
+
+alter table public.teams enable row level security;
+alter table public.game_packs enable row level security;
+alter table public.game_state enable row level security;
+alter table public.score_events enable row level security;
+
+drop policy if exists "anon can select teams" on public.teams;
+create policy "anon can select teams" on public.teams for select to anon using (true);
+drop policy if exists "anon can insert teams" on public.teams;
+create policy "anon can insert teams" on public.teams for insert to anon with check (true);
+drop policy if exists "anon can update teams" on public.teams;
+create policy "anon can update teams" on public.teams for update to anon using (true) with check (true);
+
+drop policy if exists "anon can select game_packs" on public.game_packs;
+create policy "anon can select game_packs" on public.game_packs for select to anon using (true);
+drop policy if exists "anon can insert game_packs" on public.game_packs;
+create policy "anon can insert game_packs" on public.game_packs for insert to anon with check (true);
+
+drop policy if exists "anon can select game_state" on public.game_state;
+create policy "anon can select game_state" on public.game_state for select to anon using (true);
+drop policy if exists "anon can insert game_state" on public.game_state;
+create policy "anon can insert game_state" on public.game_state for insert to anon with check (true);
+drop policy if exists "anon can update game_state" on public.game_state;
+create policy "anon can update game_state" on public.game_state for update to anon using (true) with check (true);
+
+drop policy if exists "anon can select score_events" on public.score_events;
+create policy "anon can select score_events" on public.score_events for select to anon using (true);
+drop policy if exists "anon can insert score_events" on public.score_events;
+create policy "anon can insert score_events" on public.score_events for insert to anon with check (true);

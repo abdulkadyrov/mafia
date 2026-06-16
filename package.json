@@ -1,11 +1,11 @@
 {
-  "name": "mafia",
+  "name": "abdulkadyrov-games",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --base=/mafia/",
+    "build": "vite build --base=/abdulkadyrov-games/",
     "lan": "npm run build && node server/lan-server.cjs",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css}\""
