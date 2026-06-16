@@ -1,6 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { useAudioController } from "../core/audio/useAudioController";
+import { routes } from "../core/config/routes";
+import { buildQrDataUrl } from "../core/qr/qrUtils";
 import { samplePlayerNames } from "../game/defaults";
 import { RoomSettingsForm } from "../features/room-settings/RoomSettingsForm";
 import { useCountdown } from "../hooks/useCountdown";
@@ -275,6 +277,16 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     pauseState.isPaused && typeof pauseState.remainingSeconds === "number"
       ? pauseState.remainingSeconds
       : secondsLeft;
+  const roomJoinUrl = React.useMemo(
+    () =>
+      room
+        ? `${window.location.origin}${import.meta.env.BASE_URL}#${routes.gameJoin(
+            "mafia",
+            room.code
+          )}`
+        : "",
+    [room]
+  );
 
   React.useEffect(() => {
     const latestIncomingMessage = [...chatMessages]
@@ -923,18 +935,21 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
             room.phase === "night" ? "border-white/10" : "border-zinc-200",
           ].join(" ")}
         >
-          <div>
-            <p
-              className={[
-                "text-xs font-black uppercase tracking-[0.18em]",
-                room.phase === "night" ? "text-white/60" : "text-zinc-500",
-              ].join(" ")}
-            >
-              Комната
-            </p>
-            <h1 className="font-mono text-3xl font-black tracking-[0.14em]">
-              {room.code}
-            </h1>
+          <div className="flex items-center gap-4">
+            <div>
+              <p
+                className={[
+                  "text-xs font-black uppercase tracking-[0.18em]",
+                  room.phase === "night" ? "text-white/60" : "text-zinc-500",
+                ].join(" ")}
+              >
+                Комната
+              </p>
+              <h1 className="font-mono text-3xl font-black tracking-[0.14em]">
+                {room.code}
+              </h1>
+            </div>
+            <CompactRoomQr title={`QR комнаты ${room.code}`} value={roomJoinUrl} />
           </div>
 
           <div className="flex items-center gap-2">
@@ -1745,6 +1760,41 @@ function EventsPanel({
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+function CompactRoomQr({
+  title,
+  value,
+}: {
+  title: string;
+  value: string;
+}) {
+  const [src, setSrc] = React.useState("");
+
+  React.useEffect(() => {
+    if (!value) {
+      setSrc("");
+      return;
+    }
+
+    void buildQrDataUrl(value).then(setSrc);
+  }, [value]);
+
+  if (!src) {
+    return (
+      <div className="hidden h-20 w-20 rounded-2xl border border-white/10 bg-white/5 md:block" />
+    );
+  }
+
+  return (
+    <div className="hidden items-center gap-2 md:flex">
+      <img
+        src={src}
+        alt={title}
+        className="h-20 w-20 rounded-2xl border border-white/10 bg-[#04101d] p-2"
+      />
     </div>
   );
 }

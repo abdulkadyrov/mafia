@@ -3,7 +3,6 @@ import { routes } from "../core/config/routes";
 import { AppLayout } from "../core/layout/AppLayout";
 import { Button } from "../core/ui/Button";
 import { Card } from "../core/ui/Card";
-import { isSupabaseConfigured } from "../core/supabase/client";
 
 export function HomePage({
   navigate,
@@ -22,7 +21,7 @@ export function HomePage({
         </Button>
       }
     >
-      <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="grid gap-4">
         <Card>
           <h2 className="text-2xl font-black text-white">Быстрый старт</h2>
           <div className="mt-4 flex flex-wrap gap-3">
@@ -38,19 +37,6 @@ export function HomePage({
         </Card>
 
         <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">
-            Статус Supabase
-          </p>
-          <p className="mt-3 text-2xl font-black text-white">
-            {isSupabaseConfigured() ? "Подключено" : "Не настроено"}
-          </p>
-          <p className="mt-3 text-sm font-semibold text-white/65">
-            Realtime работает адресно и больше не должен дёргать весь интерфейс
-            каждые 1–2 секунды.
-          </p>
-        </Card>
-
-        <Card className="lg:col-span-2">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">
             Доступные игры
           </p>

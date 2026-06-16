@@ -3,7 +3,6 @@ import { appConfig } from "../core/config/appConfig";
 import { AppLayout } from "../core/layout/AppLayout";
 import { Button } from "../core/ui/Button";
 import { Card } from "../core/ui/Card";
-import { getSupabaseConfigError, isSupabaseConfigured } from "../core/supabase/client";
 
 export function AppSettingsPage({
   onLogout,
@@ -13,20 +12,6 @@ export function AppSettingsPage({
   return (
     <AppLayout title="Настройки" subtitle="Общие настройки платформы">
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">
-            Supabase
-          </p>
-          <p className="mt-3 text-2xl font-black text-white">
-            {isSupabaseConfigured() ? "Подключено" : "Не настроено"}
-          </p>
-          {getSupabaseConfigError() ? (
-            <p className="mt-3 text-sm font-semibold text-amber-100">
-              {getSupabaseConfigError()}
-            </p>
-          ) : null}
-        </Card>
-
         <Card>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">
             Данные приложения
