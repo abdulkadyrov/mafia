@@ -1,5 +1,7 @@
 import React from "react";
 
+type NoInfer<T> = [T][T extends unknown ? 0 : never];
+
 function stableSerialize(value: unknown) {
   return JSON.stringify(value);
 }
@@ -10,7 +12,7 @@ export function areEqualByValue<T>(left: T, right: T) {
 
 export function setIfChanged<T>(
   setState: React.Dispatch<React.SetStateAction<T>>,
-  nextValue: T
+  nextValue: NoInfer<T>
 ) {
   setState((currentValue) =>
     areEqualByValue(currentValue, nextValue) ? currentValue : nextValue
