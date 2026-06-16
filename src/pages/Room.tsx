@@ -877,7 +877,8 @@ function PlayersPanel({
                 darkMode ? "bg-white/10" : "bg-zinc-100",
               ].join(" ")}
             >
-              {formatRole(role)}: {roleCounts[role]}/{getRoleLimit(role, room.settings)}
+              {formatRole(role)}: {roleCounts[role]}/
+              {getRoleLimit(role, room.settings, players.length)}
             </span>
           ))}
         </div>
@@ -2074,7 +2075,11 @@ function countAssignedRoles(players: Player[]): Record<PlayerRole, number> {
   );
 }
 
-function getRoleLimit(role: PlayerRole, settings: RoomRecord["settings"]): number {
+function getRoleLimit(
+  role: PlayerRole,
+  settings: RoomRecord["settings"],
+  playerCount?: number
+): number {
   switch (role) {
     case "mafia":
       return settings.roles.mafia;
@@ -2082,8 +2087,19 @@ function getRoleLimit(role: PlayerRole, settings: RoomRecord["settings"]): numbe
       return settings.roles.doctors;
     case "inspector":
       return settings.roles.detectives;
-    case "civilian":
+    case "civilian": {
+      if (typeof playerCount === "number") {
+        return Math.max(
+          0,
+          playerCount -
+            settings.roles.mafia -
+            settings.roles.doctors -
+            settings.roles.detectives
+        );
+      }
+
       return settings.roles.civilians;
+    }
     default:
       return 0;
   }
@@ -2104,7 +2120,7 @@ function getManualRoleAssignmentError(
   }
 
   const roleCounts = countAssignedRoles(players);
-  const roleLimit = getRoleLimit(role, settings);
+  const roleLimit = getRoleLimit(role, settings, players.length);
 
   if (roleCounts[role] >= roleLimit) {
     return `Для роли ${formatRole(role)} уже выбран максимум игроков.`;
@@ -2124,7 +2140,7 @@ function validateManualRoleAssignments(
   }
 
   for (const role of MANUAL_ASSIGNABLE_ROLES) {
-    if (roleCounts[role] !== getRoleLimit(role, settings)) {
+    if (roleCounts[role] !== getRoleLimit(role, settings, players.length)) {
       return `Количество ролей ${formatRole(role)} не совпадает с настройками.`;
     }
   }
