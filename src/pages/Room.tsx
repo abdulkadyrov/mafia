@@ -379,19 +379,24 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
 
     try {
       const latestPlayers = await getPlayers(room.id);
+      const savedManualAssignments = getSavedManualRoleAssignments(
+        latestPlayers,
+        room.settings
+      );
 
       if (room.settings.roleAssignmentMode === "manual") {
-        const manualAssignmentError = validateManualRoleAssignments(
-          latestPlayers,
-          room.settings
-        );
+        const manualAssignmentError =
+          savedManualAssignments === null
+            ? validateManualRoleAssignments(latestPlayers, room.settings)
+            : null;
 
         if (manualAssignmentError) {
           throw new Error(manualAssignmentError);
         }
       }
 
-      const assignedRoles = buildRoleAssignments(latestPlayers, room.settings);
+      const assignedRoles =
+        savedManualAssignments ?? buildRoleAssignments(latestPlayers, room.settings);
 
       await Promise.all(
         assignedRoles.map((player) => updatePlayerRole(player.id, player.role))
@@ -2611,11 +2616,10 @@ function buildRoleAssignments(
   players: Player[],
   settings: RoomRecord["settings"]
 ): Array<{ id: string; role: PlayerRole }> {
-  if (settings.roleAssignmentMode === "manual") {
-    return players.map((player) => ({
-      id: player.id,
-      role: player.role === "unassigned" ? "civilian" : player.role,
-    }));
+  const savedManualAssignments = getSavedManualRoleAssignments(players, settings);
+
+  if (savedManualAssignments) {
+    return savedManualAssignments;
   }
 
   const deck = buildRoleDeck(players.length, settings);
@@ -3466,6 +3470,20 @@ function validateManualRoleAssignments(
   }
 
   return null;
+}
+
+function getSavedManualRoleAssignments(
+  players: Player[],
+  settings: RoomRecord["settings"]
+): Array<{ id: string; role: PlayerRole }> | null {
+  if (validateManualRoleAssignments(players, settings)) {
+    return null;
+  }
+
+  return players.map((player) => ({
+    id: player.id,
+    role: player.role === "unassigned" ? "civilian" : player.role,
+  }));
 }
 
 function getRunoffCandidateIds(
