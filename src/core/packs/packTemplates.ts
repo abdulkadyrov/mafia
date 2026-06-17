@@ -29,6 +29,8 @@ export function buildPackPrompt(
 }
 
 function createMillionaireTemplate(options: PackTemplateOptions) {
+  const previewCount = Math.min(options.itemCount, 2);
+
   return {
     game: "millionaire",
     title: options.title,
@@ -38,7 +40,7 @@ function createMillionaireTemplate(options: PackTemplateOptions) {
       shuffleOptions: false,
       allowImages: true,
     },
-    questions: Array.from({ length: options.itemCount }, (_, index) => ({
+    questions: Array.from({ length: previewCount }, (_, index) => ({
       id: `q${index + 1}`,
       level: index + 1,
       points: (index + 1) * 100,
@@ -57,6 +59,8 @@ function createMillionaireTemplate(options: PackTemplateOptions) {
 }
 
 function createAliasTemplate(options: PackTemplateOptions) {
+  const previewCount = Math.min(options.itemCount, 2);
+
   return {
     game: "alias",
     title: options.title,
@@ -68,7 +72,7 @@ function createAliasTemplate(options: PackTemplateOptions) {
       allowSkip: true,
       shuffleWords: true,
     },
-    words: Array.from({ length: options.itemCount }, (_, index) => ({
+    words: Array.from({ length: previewCount }, (_, index) => ({
       id: `w${index + 1}`,
       text: `Слово ${index + 1}`,
       difficulty: "medium",

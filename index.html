@@ -1,45 +1,59 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <link rel="manifest" href="%BASE_URL%manifest.json" />
     <title>Мафия "Абдулкадыров"</title>
-      <meta name="theme-color" content="#0B0F19" />
-      <link rel="apple-touch-icon" href="%BASE_URL%icon.svg" />
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-      <meta name="description" content="Локальная PWA игра Мафия — играйте по локальной сети без интернета" />
-      <script>
-        (function () {
-          var cleanupKey = "agames-sw-cleanup-v1";
+    <meta name="theme-color" content="#0B0F19" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <meta
+      name="description"
+      content="Локальная PWA игра Мафия — играйте по локальной сети без интернета"
+    />
+    <script>
+      (function () {
+        var cleanupKey = "agames-sw-cleanup-v1";
 
-          if (window.localStorage.getItem(cleanupKey)) {
-            return;
-          }
+        if (window.localStorage.getItem(cleanupKey)) {
+          return;
+        }
 
-          window.localStorage.setItem(cleanupKey, "done");
+        window.localStorage.setItem(cleanupKey, "done");
 
-          if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker
+            .getRegistrations()
+            .then(function (registrations) {
               registrations.forEach(function (registration) {
                 registration.unregister();
               });
             });
-          }
+        }
 
-          if ("caches" in window) {
-            caches.keys().then(function (keys) {
-              keys.forEach(function (key) {
-                if (key.indexOf("mafia-shell") === 0 || key.indexOf("agames-shell") === 0) {
-                  caches.delete(key);
-                }
-              });
+        if ("caches" in window) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (key) {
+              if (
+                key.indexOf("mafia-shell") === 0 ||
+                key.indexOf("agames-shell") === 0
+              ) {
+                caches.delete(key);
+              }
             });
-          }
-        })();
-      </script>
+          });
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

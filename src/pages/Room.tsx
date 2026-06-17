@@ -198,8 +198,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     });
     const votesChannel = subscribeToVotes(room.id, async () => {
       const currentRoundNumber = room.round_number || 1;
-      const voteType =
-        room.phase === "voting_confirmation" ? "runoff" : "main";
+      const voteType = room.phase === "voting_confirmation" ? "runoff" : "main";
       const nextVotes =
         room.phase === "voting" || room.phase === "voting_confirmation"
           ? await getVotes(room.id, currentRoundNumber, voteType)
@@ -224,7 +223,9 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     () => getCurrentSessionEvents(gameEvents),
     [gameEvents]
   );
-  const phaseEndsAt = room ? getPhaseEndsAt(room, currentSessionEvents) : undefined;
+  const phaseEndsAt = room
+    ? getPhaseEndsAt(room, currentSessionEvents)
+    : undefined;
   const secondsLeft = useCountdown(phaseEndsAt);
   const orderedPlayers = React.useMemo(
     () => orderPlayers(players, localPlayerId),
@@ -252,7 +253,9 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     [currentSessionEvents, room?.round_number]
   );
   const winner =
-    room?.phase === "game_over" ? getGameOutcome(players, currentSessionEvents) : null;
+    room?.phase === "game_over"
+      ? getGameOutcome(players, currentSessionEvents)
+      : null;
   const { playMusic, stopMusic } = useAudioController();
   const chatMessages = React.useMemo(
     () =>
@@ -280,10 +283,9 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
   const roomJoinUrl = React.useMemo(
     () =>
       room
-        ? `${window.location.origin}${import.meta.env.BASE_URL}#${routes.gameJoin(
-            "mafia",
-            room.code
-          )}`
+        ? `${window.location.origin}${
+            import.meta.env.BASE_URL
+          }#${routes.gameJoin("mafia", room.code)}`
         : "",
     [room]
   );
@@ -539,7 +541,9 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
           player.id === targetPlayer.id ? { ...player, role } : player
         )
       );
-      setActionMessage(`${targetPlayer.name}: назначена роль ${formatRole(role)}.`);
+      setActionMessage(
+        `${targetPlayer.name}: назначена роль ${formatRole(role)}.`
+      );
     } catch (error) {
       setErrorMessage(getErrorMessage(error, "Не удалось назначить роль"));
     }
@@ -651,8 +655,13 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       await addGameEvent(room.id, {
         round_number: room.round_number || 1,
         phase: room.phase,
-        type: room.phase === "voting_confirmation" ? "runoff_vote" : "vote_cast",
-        message: getVoteEventText(selfPlayer.name, targetPlayer.name, room.phase),
+        type:
+          room.phase === "voting_confirmation" ? "runoff_vote" : "vote_cast",
+        message: getVoteEventText(
+          selfPlayer.name,
+          targetPlayer.name,
+          room.phase
+        ),
         visibility: "public",
         target_player_id: targetPlayer.id,
       });
@@ -674,7 +683,13 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
 
     try {
       if (room.phase === "night") {
-        await ensureBotPhaseActions(room, players, gameEvents, votes, nightActions);
+        await ensureBotPhaseActions(
+          room,
+          players,
+          gameEvents,
+          votes,
+          nightActions
+        );
         const latestNightActions = await getNightActions(
           room.id,
           room.round_number || 1
@@ -712,7 +727,13 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       }
 
       if (room.phase === "voting" || room.phase === "voting_confirmation") {
-        await ensureBotPhaseActions(room, players, gameEvents, votes, nightActions);
+        await ensureBotPhaseActions(
+          room,
+          players,
+          gameEvents,
+          votes,
+          nightActions
+        );
         const latestVotes = await getVotes(
           room.id,
           room.round_number || 1,
@@ -785,6 +806,35 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       await clearRoomGameData(room.id);
       await resetPlayersForNewGame(room.id);
       await updateRoomPhase(room.id, "lobby", { roundNumber: 0 });
+      await addGameEvent(room.id, {
+        round_number: 0,
+        phase: "lobby",
+        type: "game_reset",
+        message: "Комната подготовлена к новой партии.",
+        visibility: "public",
+        target_player_id: null,
+      });
+      setRoom((currentRoom) =>
+        currentRoom
+          ? {
+              ...currentRoom,
+              phase: "lobby",
+              status: "lobby",
+              round_number: 0,
+            }
+          : currentRoom
+      );
+      setPlayers((currentPlayers) =>
+        currentPlayers.map((player) => ({
+          ...player,
+          is_alive: true,
+          role: "unassigned",
+          score: 0,
+        }))
+      );
+      setNightActions([]);
+      setGameEvents([]);
+      setVotes([]);
       setSelectedPlayerId(null);
       setPendingVoteTargetId(null);
       setIsChatOpen(false);
@@ -924,11 +974,11 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
       }}
       transition={{ duration: 0.6, ease: "easeInOut" }}
       className={[
-        "h-screen overflow-hidden px-4 py-4",
+        "min-h-screen overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-4 sm:py-4",
         room.phase === "night" ? "text-white" : "text-zinc-950",
       ].join(" ")}
     >
-      <div className="mx-auto grid h-full w-full max-w-7xl grid-rows-[auto_auto_1fr] gap-3">
+      <div className="mx-auto grid w-full max-w-7xl gap-3 pb-24">
         <header
           className={[
             "flex items-center justify-between gap-3 border-b pb-3",
@@ -949,7 +999,10 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
                 {room.code}
               </h1>
             </div>
-            <CompactRoomQr title={`QR комнаты ${room.code}`} value={roomJoinUrl} />
+            <CompactRoomQr
+              title={`QR комнаты ${room.code}`}
+              value={roomJoinUrl}
+            />
           </div>
 
           <div className="flex items-center gap-2">
@@ -1044,8 +1097,8 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
         ) : null}
 
         {room.phase === "lobby" ? (
-          <section className="grid min-h-0 gap-3 lg:grid-cols-[1.08fr_0.92fr]">
-            <div className="min-h-0">
+          <section className="grid gap-3 lg:grid-cols-[1.08fr_0.92fr]">
+            <div>
               <PlayersPanel
                 room={room}
                 players={orderedPlayers}
@@ -1070,7 +1123,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
               />
             </div>
 
-            <div className="min-h-0">
+            <div>
               {isHost ? (
                 <SettingsPanel
                   settings={room.settings as RoomSettings}
@@ -1099,9 +1152,9 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
             }}
           />
         ) : (
-          <section className="grid min-h-0 grid-rows-[1fr_auto] gap-3">
-            <div className="grid min-h-0 gap-3 lg:grid-cols-[0.98fr_1.02fr]">
-              <div className="min-h-0">
+          <section className="grid gap-3">
+            <div className="grid gap-3 lg:grid-cols-[0.98fr_1.02fr]">
+              <div>
                 <PlayersPanel
                   room={room}
                   players={orderedPlayers}
@@ -1127,7 +1180,7 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
                 />
               </div>
 
-              <div className="min-h-0">
+              <div>
                 <EventsPanel
                   phase={room.phase}
                   events={currentSessionEvents}
@@ -1222,9 +1275,14 @@ function PlayersPanel({
 }) {
   const darkMode = room.phase === "night";
   const canActAtNight = Boolean(selfPlayer?.is_alive && room.phase === "night");
-  const roleCounts = React.useMemo(() => countAssignedRoles(players), [players]);
+  const roleCounts = React.useMemo(
+    () => countAssignedRoles(players),
+    [players]
+  );
   const manualMode =
-    room.phase === "lobby" && isHost && room.settings.roleAssignmentMode === "manual";
+    room.phase === "lobby" &&
+    isHost &&
+    room.settings.roleAssignmentMode === "manual";
   const canVote =
     Boolean(selfPlayer?.is_alive) &&
     (room.phase === "voting" || room.phase === "voting_confirmation");
@@ -1232,7 +1290,7 @@ function PlayersPanel({
   return (
     <div
       className={[
-        "grid h-full min-h-0 rounded-2xl border shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+        "grid rounded-2xl border shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
         compact ? "p-3" : "p-4",
         darkMode
           ? "border-white/10 bg-white/5 backdrop-blur"
@@ -1249,7 +1307,11 @@ function PlayersPanel({
           >
             Игроки
           </p>
-          <h2 className={compact ? "mt-1 text-lg font-black" : "mt-1 text-2xl font-black"}>
+          <h2
+            className={
+              compact ? "mt-1 text-lg font-black" : "mt-1 text-2xl font-black"
+            }
+          >
             Список комнаты
           </h2>
         </div>
@@ -1278,15 +1340,14 @@ function PlayersPanel({
               {role === "civilian"
                 ? roleCounts.civilian + roleCounts.unassigned
                 : roleCounts[role]}
-              /
-              {getRoleLimit(role, room.settings, players.length)}
+              /{getRoleLimit(role, room.settings, players.length)}
             </span>
           ))}
         </div>
       ) : null}
 
       {isExpanded ? (
-        <div className={compact ? "mt-2 min-h-0 space-y-1.5 overflow-auto pr-1" : "mt-3 min-h-0 space-y-2 overflow-auto pr-1"}>
+        <div className={compact ? "mt-2 space-y-1.5" : "mt-3 space-y-2"}>
           {players.map((player, index) => {
             const isSelf = player.id === localPlayerId;
             const isSelected = player.id === selectedPlayerId;
@@ -1322,111 +1383,59 @@ function PlayersPanel({
                     : "",
                 ].join(" ")}
               >
-                <button
-                  type="button"
-                  onClick={() => onSelectPlayer(player.id)}
-                  className={compact
-                    ? "grid w-full grid-cols-[auto_1fr_auto] items-center gap-2 text-left"
-                    : "grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 text-left"}
+                <div
+                  className={
+                    compact
+                      ? "grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2"
+                      : "grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3"
+                  }
                 >
-                  <div
-                    className={[
-                      "grid place-items-center rounded-full bg-white font-black text-zinc-950",
-                      compact ? "h-7 w-7 text-xs" : "h-9 w-9 text-sm",
-                    ].join(" ")}
+                  <button
+                    type="button"
+                    onClick={() => onSelectPlayer(player.id)}
+                    className="grid place-items-center self-center"
                   >
-                    {index + 1}
-                  </div>
-                  <div className="min-w-0">
-                    <p className={compact ? "truncate text-xs font-black" : "truncate text-sm font-black"}>
-                      {player.name}
-                      {isSelf ? " (Вы)" : ""}
-                    </p>
-                    <p
+                    <div
                       className={[
-                        compact ? "text-[11px] font-semibold" : "text-xs font-semibold",
-                        darkMode ? "text-white/60" : "text-zinc-500",
+                        "grid place-items-center rounded-full bg-white font-black text-zinc-950",
+                        compact ? "h-7 w-7 text-xs" : "h-9 w-9 text-sm",
                       ].join(" ")}
                     >
-                      {player.is_host ? "Хост" : "Игрок"} ·{" "}
-                      {player.is_alive ? "Жив" : "Погиб"}
-                      {manualMode ? ` · ${formatRole(player.role)}` : ""}
-                    </p>
-                  </div>
-                  <div
-                    className={[
-                      compact
-                        ? "rounded-full px-2 py-0.5 text-[11px] font-bold"
-                        : "rounded-full px-3 py-1 text-xs font-bold",
-                      darkMode
-                        ? "bg-white/10 text-white"
-                        : "bg-white text-zinc-600",
-                    ].join(" ")}
-                  >
-                    {currentVotesByTarget[player.id] ?? 0}
-                  </div>
-                </button>
-
-                {isSelected && canActAtNight && selfPlayer ? (
-                  <div className="mt-3 border-t border-current/10 pt-3">
-                    <div className="flex flex-wrap gap-2">
-                      {selfPlayer.role === "mafia" ? (
-                        <Button
-                          className="min-h-10 px-3 py-2"
-                          disabled={
-                            isSubmittingAction || !canTarget(selfPlayer, player)
-                          }
-                          onClick={() => {
-                            void onRoleAction(player, "mafiaKill");
-                          }}
-                        >
-                          Убить
-                        </Button>
-                      ) : null}
-
-                      {selfPlayer.role === "inspector" ? (
-                        <>
-                          <Button
-                            className="min-h-10 px-3 py-2"
-                            disabled={
-                              isSubmittingAction ||
-                              !canTarget(selfPlayer, player)
-                            }
-                            onClick={() => {
-                              void onRoleAction(player, "detectiveCheck");
-                            }}
-                          >
-                            Узнать роль
-                          </Button>
-                          <Button
-                            className="min-h-10 px-3 py-2"
-                            disabled={
-                              isSubmittingAction ||
-                              !canTarget(selfPlayer, player)
-                            }
-                            onClick={() => {
-                              void onRoleAction(player, "detectiveKill");
-                            }}
-                          >
-                            Выстрелить
-                          </Button>
-                        </>
-                      ) : null}
-
-                      {selfPlayer.role === "doctor" ? (
-                        <Button
-                          className="min-h-10 px-3 py-2"
-                          disabled={isSubmittingAction || !player.is_alive}
-                          onClick={() => {
-                            void onRoleAction(player, "doctorHeal");
-                          }}
-                        >
-                          Спасти
-                        </Button>
-                      ) : null}
+                      {index + 1}
                     </div>
+                  </button>
 
-                    {actionMessage ? (
+                  <div className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => onSelectPlayer(player.id)}
+                      className="w-full text-left"
+                    >
+                      <p
+                        className={
+                          compact
+                            ? "truncate text-xs font-black"
+                            : "truncate text-sm font-black"
+                        }
+                      >
+                        {player.name}
+                        {isSelf ? " (Вы)" : ""}
+                      </p>
+                      <p
+                        className={[
+                          compact
+                            ? "text-[11px] font-semibold"
+                            : "text-xs font-semibold",
+                          darkMode ? "text-white/60" : "text-zinc-500",
+                        ].join(" ")}
+                      >
+                        {player.is_host ? "Хост" : "Игрок"} ·{" "}
+                        {player.is_alive ? "Жив" : "Погиб"}
+                        {manualMode ? ` · ${formatRole(player.role)}` : ""}
+                      </p>
+                    </button>
+
+                    {actionMessage && isSelected ? (
                       <p
                         className={[
                           "mt-2 text-xs font-semibold",
@@ -1436,79 +1445,8 @@ function PlayersPanel({
                         {actionMessage}
                       </p>
                     ) : null}
-                  </div>
-                ) : null}
 
-                {isSelected && manualMode ? (
-                  <div className="mt-3 border-t border-current/10 pt-3">
-                    <p
-                      className={[
-                        "mb-2 text-xs font-bold uppercase tracking-[0.14em]",
-                        darkMode ? "text-white/60" : "text-zinc-500",
-                      ].join(" ")}
-                    >
-                      Назначить роль
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {MANUAL_ASSIGNABLE_ROLES.map((role) => {
-                        const disabled = Boolean(
-                          getManualRoleAssignmentError(
-                            player,
-                            role,
-                            players,
-                            room.settings
-                          )
-                        );
-
-                        return (
-                          <Button
-                            key={role}
-                            className="min-h-10 px-3 py-2"
-                            disabled={disabled}
-                            variant={player.role === role ? "primary" : "secondary"}
-                            onClick={() => {
-                              void onManualRoleAssign(player, role);
-                            }}
-                          >
-                            {formatRole(role)}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-
-                {isSelected && canVoteForThisPlayer ? (
-                  <div className="mt-3 border-t border-current/10 pt-3">
-                    {!showVoteConfirm ? (
-                      <Button
-                        className="min-h-10 px-3 py-2"
-                        onClick={() => onSetPendingVoteTarget(player.id)}
-                      >
-                        Голосовать
-                      </Button>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          className="min-h-10 px-3 py-2"
-                          variant="primary"
-                          onClick={() => {
-                            void onSubmitVote(player);
-                          }}
-                        >
-                          Подтвердить голос
-                        </Button>
-                        <Button
-                          className="min-h-10 px-3 py-2"
-                          variant="ghost"
-                          onClick={() => onSetPendingVoteTarget(null)}
-                        >
-                          Отмена
-                        </Button>
-                      </div>
-                    )}
-
-                    {selfVote ? (
+                    {selfVote && isSelected && canVoteForThisPlayer ? (
                       <p
                         className={[
                           "mt-2 text-xs font-semibold",
@@ -1519,7 +1457,143 @@ function PlayersPanel({
                       </p>
                     ) : null}
                   </div>
-                ) : null}
+
+                  <div className="flex flex-col items-end gap-2">
+                    <div
+                      className={[
+                        compact
+                          ? "rounded-full px-2 py-0.5 text-[11px] font-bold"
+                          : "rounded-full px-3 py-1 text-xs font-bold",
+                        darkMode
+                          ? "bg-white/10 text-white"
+                          : "bg-white text-zinc-600",
+                      ].join(" ")}
+                    >
+                      {currentVotesByTarget[player.id] ?? 0}
+                    </div>
+
+                    {isSelected && canActAtNight && selfPlayer ? (
+                      <div className="flex max-w-[14rem] flex-wrap justify-end gap-2">
+                        {selfPlayer.role === "mafia" ? (
+                          <Button
+                            className="min-h-9 px-3 py-2"
+                            disabled={
+                              isSubmittingAction ||
+                              !canTarget(selfPlayer, player)
+                            }
+                            onClick={() => {
+                              void onRoleAction(player, "mafiaKill");
+                            }}
+                          >
+                            Убить
+                          </Button>
+                        ) : null}
+
+                        {selfPlayer.role === "inspector" ? (
+                          <>
+                            <Button
+                              className="min-h-9 px-3 py-2"
+                              disabled={
+                                isSubmittingAction ||
+                                !canTarget(selfPlayer, player)
+                              }
+                              onClick={() => {
+                                void onRoleAction(player, "detectiveCheck");
+                              }}
+                            >
+                              Узнать роль
+                            </Button>
+                            <Button
+                              className="min-h-9 px-3 py-2"
+                              disabled={
+                                isSubmittingAction ||
+                                !canTarget(selfPlayer, player)
+                              }
+                              onClick={() => {
+                                void onRoleAction(player, "detectiveKill");
+                              }}
+                            >
+                              Выстрелить
+                            </Button>
+                          </>
+                        ) : null}
+
+                        {selfPlayer.role === "doctor" ? (
+                          <Button
+                            className="min-h-9 px-3 py-2"
+                            disabled={isSubmittingAction || !player.is_alive}
+                            onClick={() => {
+                              void onRoleAction(player, "doctorHeal");
+                            }}
+                          >
+                            Спасти
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {isSelected && manualMode ? (
+                      <div className="flex max-w-[16rem] flex-wrap justify-end gap-2">
+                        {MANUAL_ASSIGNABLE_ROLES.map((role) => {
+                          const disabled = Boolean(
+                            getManualRoleAssignmentError(
+                              player,
+                              role,
+                              players,
+                              room.settings
+                            )
+                          );
+
+                          return (
+                            <Button
+                              key={role}
+                              className="min-h-9 px-3 py-2"
+                              disabled={disabled}
+                              variant={
+                                player.role === role ? "primary" : "secondary"
+                              }
+                              onClick={() => {
+                                void onManualRoleAssign(player, role);
+                              }}
+                            >
+                              {formatRole(role)}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
+                    {isSelected && canVoteForThisPlayer ? (
+                      !showVoteConfirm ? (
+                        <Button
+                          className="min-h-9 px-3 py-2"
+                          onClick={() => onSetPendingVoteTarget(player.id)}
+                        >
+                          Голосовать
+                        </Button>
+                      ) : (
+                        <div className="flex max-w-[16rem] flex-wrap justify-end gap-2">
+                          <Button
+                            className="min-h-9 px-3 py-2"
+                            variant="primary"
+                            onClick={() => {
+                              void onSubmitVote(player);
+                            }}
+                          >
+                            Подтвердить голос
+                          </Button>
+                          <Button
+                            className="min-h-9 px-3 py-2"
+                            variant="ghost"
+                            onClick={() => onSetPendingVoteTarget(null)}
+                          >
+                            Отмена
+                          </Button>
+                        </div>
+                      )
+                    ) : null}
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -1586,7 +1660,7 @@ function SettingsPanel({
         </Button>
       </div>
 
-      <div className="mt-4 max-h-[35vh] overflow-auto pr-1">
+      <div className="mt-4">
         <RoomSettingsForm settings={settings} onChange={onChange} />
       </div>
     </div>
@@ -1722,7 +1796,7 @@ function EventsPanel({
   return (
     <div
       className={[
-        "grid min-h-0 rounded-2xl border shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+        "grid rounded-2xl border shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
         compact ? "p-3" : "p-4",
         darkMode
           ? "border-white/10 bg-white/5 backdrop-blur"
@@ -1735,15 +1809,19 @@ function EventsPanel({
             "text-xs font-black uppercase tracking-[0.18em]",
             darkMode ? "text-white/60" : "text-zinc-500",
           ].join(" ")}
-          >
-            События
-          </p>
-        <h2 className={compact ? "mt-1 text-lg font-black" : "mt-1 text-xl font-black"}>
+        >
+          События
+        </p>
+        <h2
+          className={
+            compact ? "mt-1 text-lg font-black" : "mt-1 text-xl font-black"
+          }
+        >
           Журнал игры
         </h2>
       </div>
 
-      <div className={compact ? "min-h-0 space-y-1.5 overflow-auto pr-1" : "min-h-0 space-y-2 overflow-auto pr-1"}>
+      <div className={compact ? "space-y-1.5" : "space-y-2"}>
         {actionMessage ? (
           <article
             className={[
@@ -1777,8 +1855,8 @@ function EventsPanel({
                   ? "max-w-[96%] rounded-2xl px-3 py-1.5 text-[11px] font-semibold"
                   : "max-w-[92%] rounded-2xl px-4 py-2 text-xs font-semibold",
                 darkMode
-                ? "bg-white/10 text-white"
-                : "bg-zinc-100 text-zinc-800",
+                  ? "bg-white/10 text-white"
+                  : "bg-zinc-100 text-zinc-800",
               ].join(" ")}
             >
               {formatEventMessage(event)}
@@ -1790,13 +1868,7 @@ function EventsPanel({
   );
 }
 
-function CompactRoomQr({
-  title,
-  value,
-}: {
-  title: string;
-  value: string;
-}) {
+function CompactRoomQr({ title, value }: { title: string; value: string }) {
   const [src, setSrc] = React.useState("");
 
   React.useEffect(() => {
@@ -1847,11 +1919,11 @@ function FloatingChat({
   onToggle: () => void;
 }) {
   return (
-    <div className="pointer-events-none fixed bottom-5 right-5 z-50 flex items-end gap-3">
+    <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex w-[min(100vw-1rem,42rem)] -translate-x-1/2 items-end justify-center gap-3 px-2">
       {isOpen ? (
         <div
           className={[
-            "pointer-events-auto flex h-[28rem] w-[22rem] max-w-[calc(100vw-5rem)] flex-col overflow-hidden rounded-3xl border shadow-[0_24px_80px_rgba(15,23,42,0.24)]",
+            "pointer-events-auto flex h-[min(32rem,68vh)] w-full max-w-[36rem] flex-col overflow-hidden rounded-3xl border shadow-[0_24px_80px_rgba(15,23,42,0.24)]",
             darkMode
               ? "border-white/10 bg-[#09111f]/95 text-white backdrop-blur"
               : "border-zinc-200 bg-white text-zinc-950",
@@ -1874,7 +1946,11 @@ function FloatingChat({
               </p>
               <h3 className="text-lg font-black">Сообщения комнаты</h3>
             </div>
-            <Button className="min-h-9 px-3 py-2" variant="ghost" onClick={onToggle}>
+            <Button
+              className="min-h-9 px-3 py-2"
+              variant="ghost"
+              onClick={onToggle}
+            >
               Скрыть
             </Button>
           </div>
@@ -1954,7 +2030,11 @@ function FloatingChat({
                     : "border-zinc-200 bg-zinc-50 text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-400",
                 ].join(" ")}
               />
-              <Button className="min-h-[52px] px-4" variant="primary" onClick={onSend}>
+              <Button
+                className="min-h-[52px] px-4"
+                variant="primary"
+                onClick={onSend}
+              >
                 Отпр.
               </Button>
             </div>
@@ -2016,52 +2096,52 @@ function FinalPanel({
       </h2>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3 lg:items-end">
-        {[
-          podiumPlayers[1],
-          podiumPlayers[0],
-          podiumPlayers[2],
-        ].map((player, index) => {
-          if (!player) {
+        {[podiumPlayers[1], podiumPlayers[0], podiumPlayers[2]].map(
+          (player, index) => {
+            if (!player) {
+              return (
+                <div
+                  key={`empty-${index}`}
+                  className="hidden rounded-3xl border border-dashed border-zinc-200 bg-zinc-50/60 lg:block"
+                />
+              );
+            }
+
+            const placement = index === 1 ? 1 : index === 0 ? 2 : 3;
+            const trophy =
+              placement === 1 ? "🏆" : placement === 2 ? "🥈" : "🥉";
+            const tone =
+              placement === 1
+                ? "border-yellow-300 bg-yellow-50 text-yellow-950"
+                : placement === 2
+                ? "border-slate-300 bg-slate-50 text-slate-950"
+                : "border-amber-400/60 bg-amber-50 text-amber-950";
+            const height =
+              placement === 1 ? "lg:min-h-[18rem]" : "lg:min-h-[14rem]";
+
             return (
               <div
-                key={`empty-${index}`}
-                className="hidden rounded-3xl border border-dashed border-zinc-200 bg-zinc-50/60 lg:block"
-              />
+                key={player.id}
+                className={[
+                  "rounded-3xl border px-5 py-6 shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
+                  tone,
+                  height,
+                ].join(" ")}
+              >
+                <p className="text-center text-4xl">{trophy}</p>
+                <p className="mt-3 text-center text-xs font-black uppercase tracking-[0.18em]">
+                  {placement} место
+                </p>
+                <p className="mt-3 text-center text-2xl font-black">
+                  {player.name}
+                </p>
+                <p className="mt-2 text-center text-sm font-semibold opacity-75">
+                  {formatRole(player.role)} · {player.finalScore} очков
+                </p>
+              </div>
             );
           }
-
-          const placement = index === 1 ? 1 : index === 0 ? 2 : 3;
-          const trophy =
-            placement === 1 ? "🏆" : placement === 2 ? "🥈" : "🥉";
-          const tone =
-            placement === 1
-              ? "border-yellow-300 bg-yellow-50 text-yellow-950"
-              : placement === 2
-              ? "border-slate-300 bg-slate-50 text-slate-950"
-              : "border-amber-400/60 bg-amber-50 text-amber-950";
-          const height =
-            placement === 1 ? "lg:min-h-[18rem]" : "lg:min-h-[14rem]";
-
-          return (
-            <div
-              key={player.id}
-              className={[
-                "rounded-3xl border px-5 py-6 shadow-[0_18px_70px_rgba(15,23,42,0.08)]",
-                tone,
-                height,
-              ].join(" ")}
-            >
-              <p className="text-center text-4xl">{trophy}</p>
-              <p className="mt-3 text-center text-xs font-black uppercase tracking-[0.18em]">
-                {placement} место
-              </p>
-              <p className="mt-3 text-center text-2xl font-black">{player.name}</p>
-              <p className="mt-2 text-center text-sm font-semibold opacity-75">
-                {formatRole(player.role)} · {player.finalScore} очков
-              </p>
-            </div>
-          );
-        })}
+        )}
       </div>
 
       {remainingPlayers.length > 0 ? (
@@ -2074,7 +2154,9 @@ function FinalPanel({
               <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
                 {index + 4} место
               </p>
-              <p className="mt-2 text-lg font-black text-zinc-950">{player.name}</p>
+              <p className="mt-2 text-lg font-black text-zinc-950">
+                {player.name}
+              </p>
               <p className="mt-1 text-sm font-semibold text-zinc-600">
                 {formatRole(player.role)} · {player.finalScore} очков
               </p>
@@ -2210,8 +2292,12 @@ async function resolveNightPhase(
   const mutualInspectorDraw =
     aliveInspectors.some((inspector) => deathTargetIds.has(inspector.id)) &&
     detectiveKillActions.some((action) => {
-      const target = players.find((player) => player.id === action.target_player_id);
-      const inspector = players.find((player) => player.id === action.actor_player_id);
+      const target = players.find(
+        (player) => player.id === action.target_player_id
+      );
+      const inspector = players.find(
+        (player) => player.id === action.actor_player_id
+      );
 
       return (
         inspector?.role === "inspector" &&
@@ -2330,7 +2416,9 @@ async function ensureBotPhaseActions(
             round_number: room.round_number || 1,
             phase: room.phase,
             type:
-              room.phase === "voting_confirmation" ? "runoff_vote" : "vote_cast",
+              room.phase === "voting_confirmation"
+                ? "runoff_vote"
+                : "vote_cast",
             message: getVoteEventText(bot.name, targetPlayer.name, room.phase),
             visibility: "public",
             target_player_id: targetPlayer.id,
@@ -2472,7 +2560,11 @@ function getPhaseEndsAt(
   room: RoomRecord,
   events: GameEvent[]
 ): number | undefined {
-  const pauseState = getPauseStateForRound(events, room.phase, room.round_number);
+  const pauseState = getPauseStateForRound(
+    events,
+    room.phase,
+    room.round_number
+  );
 
   if (pauseState.isPaused) {
     return undefined;
@@ -2634,7 +2726,8 @@ async function chooseBotNightAction(
   const roundNumber = room.round_number || 1;
   const suspicion = buildSuspicionMap(alivePlayers, gameEvents, []);
   const existingActorActions = nightActions.filter(
-    (action) => action.actor_player_id === bot.id && action.round_number === roundNumber
+    (action) =>
+      action.actor_player_id === bot.id && action.round_number === roundNumber
   );
 
   if (bot.role === "mafia") {
@@ -2693,9 +2786,10 @@ async function chooseBotNightAction(
       return null;
     }
 
-    const rankedTargets = rankPlayersForInspector(alivePlayers, suspicion).filter(
-      (player) => canTarget(bot, player)
-    );
+    const rankedTargets = rankPlayersForInspector(
+      alivePlayers,
+      suspicion
+    ).filter((player) => canTarget(bot, player));
     const lethalTarget = rankedTargets[0];
     const shouldShoot =
       Boolean(lethalTarget) &&
@@ -2731,7 +2825,9 @@ function chooseBotVoteTarget(
   const candidates =
     room.phase === "voting_confirmation"
       ? alivePlayers.filter((player) =>
-          getRunoffCandidateIds(gameEvents, room.round_number).includes(player.id)
+          getRunoffCandidateIds(gameEvents, room.round_number).includes(
+            player.id
+          )
         )
       : alivePlayers.filter((player) => player.id !== bot.id);
   const suspicion = buildSuspicionMap(alivePlayers, gameEvents, votes);
@@ -2751,7 +2847,9 @@ function chooseBotVoteTarget(
 
   const target = [...candidates]
     .filter((player) => player.id !== bot.id)
-    .sort((left, right) => (suspicion[right.id] ?? 0) - (suspicion[left.id] ?? 0))[0];
+    .sort(
+      (left, right) => (suspicion[right.id] ?? 0) - (suspicion[left.id] ?? 0)
+    )[0];
 
   return target?.id ?? null;
 }
@@ -2857,21 +2955,23 @@ function chooseDoctorTarget(
       .map((event) => event.target_player_id as string)
   );
 
-  return [...alivePlayers]
-    .filter((player) => player.id !== bot.id || canSelfHeal)
-    .sort((left, right) => {
-      const rightScore =
-        (recentlyThreatenedIds.has(right.id) ? 5 : 0) +
-        (right.role === "inspector" ? 4 : 0) +
-        (right.role === "doctor" ? 2 : 0) -
-        (suspicion[right.id] ?? 0);
-      const leftScore =
-        (recentlyThreatenedIds.has(left.id) ? 5 : 0) +
-        (left.role === "inspector" ? 4 : 0) +
-        (left.role === "doctor" ? 2 : 0) -
-        (suspicion[left.id] ?? 0);
-      return rightScore - leftScore;
-    })[0] ?? null;
+  return (
+    [...alivePlayers]
+      .filter((player) => player.id !== bot.id || canSelfHeal)
+      .sort((left, right) => {
+        const rightScore =
+          (recentlyThreatenedIds.has(right.id) ? 5 : 0) +
+          (right.role === "inspector" ? 4 : 0) +
+          (right.role === "doctor" ? 2 : 0) -
+          (suspicion[right.id] ?? 0);
+        const leftScore =
+          (recentlyThreatenedIds.has(left.id) ? 5 : 0) +
+          (left.role === "inspector" ? 4 : 0) +
+          (left.role === "doctor" ? 2 : 0) -
+          (suspicion[left.id] ?? 0);
+        return rightScore - leftScore;
+      })[0] ?? null
+  );
 }
 
 function resolveMafiaTargetId(
@@ -3059,7 +3159,9 @@ function formatTimer(secondsLeft: number): string {
 
 function getWinner(players: Player[]): "mafia" | "civilians" | null {
   const alivePlayers = players.filter((player) => player.is_alive);
-  const aliveMafiaPlayers = alivePlayers.filter((player) => player.role === "mafia");
+  const aliveMafiaPlayers = alivePlayers.filter(
+    (player) => player.role === "mafia"
+  );
   const mafiaAlive = aliveMafiaPlayers.length;
   const civiliansAlive = alivePlayers.length - mafiaAlive;
 
@@ -3082,10 +3184,7 @@ function getWinner(players: Player[]): "mafia" | "civilians" | null {
   return null;
 }
 
-function computeFinalScore(
-  player: Player,
-  winner: GameOutcome | null
-): number {
+function computeFinalScore(player: Player, winner: GameOutcome | null): number {
   const belongsToWinner =
     (winner === "mafia" && player.role === "mafia") ||
     (winner === "civilians" && player.role !== "mafia") ||
@@ -3107,7 +3206,8 @@ function getGameOutcome(
     .filter((event) => event.phase === "game_over")
     .sort(
       (left, right) =>
-        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+        new Date(right.created_at).getTime() -
+        new Date(left.created_at).getTime()
     )[0];
 
   switch (latestGameOverEvent?.type) {
@@ -3359,8 +3459,7 @@ function validateManualRoleAssignments(
 
   for (const role of ["mafia", "doctor", "inspector", "civilian"] as const) {
     if (
-      effectiveRoleCounts[role] !==
-      getRoleLimit(role, settings, players.length)
+      effectiveRoleCounts[role] !== getRoleLimit(role, settings, players.length)
     ) {
       return `Количество ролей ${formatRole(role)} не совпадает с настройками.`;
     }
