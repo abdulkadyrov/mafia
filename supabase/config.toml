@@ -1,0 +1,4 @@
+project_id = "abdulkadyrov-games-mafia"
+
+[functions.mafia-command]
+verify_jwt = true
