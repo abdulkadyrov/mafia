@@ -4,3 +4,6 @@ dist/
 .env.local
 .idea/
 /.vite
+coverage/
+playwright-report/
+test-results/

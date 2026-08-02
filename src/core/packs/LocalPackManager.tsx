@@ -29,7 +29,10 @@ export function LocalPackManager({
   const [errors, setErrors] = React.useState<string[]>([]);
 
   const packs = React.useMemo(
-    () => getLocalGamePacksByType(game).slice().reverse(),
+    () => {
+      void libraryVersion;
+      return getLocalGamePacksByType(game).slice().reverse();
+    },
     [game, libraryVersion]
   );
   const template = React.useMemo(
@@ -51,11 +54,7 @@ export function LocalPackManager({
     [game, itemCount, packName, template, theme]
   );
 
-  React.useEffect(() => {
-    resetForm();
-  }, [game]);
-
-  function resetForm() {
+  const resetForm = React.useCallback(() => {
     setEditingPackId(null);
     setPackName(game === "millionaire" ? "Новая викторина" : "Новый словарь");
     setTheme(game === "millionaire" ? "Школьные знания" : "Общие слова");
@@ -63,7 +62,11 @@ export function LocalPackManager({
     setJson("");
     setErrors([]);
     setStatus("");
-  }
+  }, [game]);
+
+  React.useEffect(() => {
+    resetForm();
+  }, [resetForm]);
 
   function syncLibrary() {
     setLibraryVersion((currentVersion) => currentVersion + 1);

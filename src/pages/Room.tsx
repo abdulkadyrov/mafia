@@ -231,8 +231,6 @@ export const Room: React.FC<Props> = ({ onLeave, roomCode }) => {
     () => orderPlayers(players, localPlayerId),
     [players, localPlayerId]
   );
-  const selectedPlayer =
-    orderedPlayers.find((player) => player.id === selectedPlayerId) ?? null;
   const voteType = room?.phase === "voting_confirmation" ? "runoff" : "main";
   const currentVotesByTarget = React.useMemo(
     () =>
