@@ -1,4 +1,4 @@
-import { PeerService, PeerEvent } from "../services/peer/PeerService";
+import { PeerService } from "../services/peer/PeerService";
 
 export class ClientNetwork {
   private peerService: PeerService;

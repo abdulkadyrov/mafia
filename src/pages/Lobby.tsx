@@ -162,7 +162,7 @@ export const Lobby: React.FC<Props> = ({ onOpenRoom }) => {
               {supabaseConfigError ? (
                 <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
                   {supabaseConfigError}. Для GitHub Pages добавьте
-                  `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY` в Secrets или
+                  `VITE_SUPABASE_URL` и `VITE_SUPABASE_PUBLISHABLE_KEY` в
                   Variables репозитория.
                 </p>
               ) : null}

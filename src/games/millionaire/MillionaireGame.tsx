@@ -17,7 +17,6 @@ import { MillionaireAnswerGrid } from "./MillionaireAnswerGrid";
 import { MillionaireHostScreen } from "./MillionaireHostScreen";
 import { MillionaireQuestionView } from "./MillionaireQuestionView";
 import { MillionaireTeamScreen } from "./MillionaireTeamScreen";
-import { millionaireSounds } from "./millionaireSounds";
 import type { MillionairePack, MillionaireQuestion, MillionaireState } from "./millionaireTypes";
 import { QrCodeCard } from "../../core/qr/QrCodeCard";
 import { routes } from "../../core/config/routes";
@@ -187,6 +186,11 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
     members.find((member) => member.player_id === currentPlayer?.id)?.team_id ?? null;
   const currentTeam = teams.find((team) => team.id === currentTeamId) ?? null;
 
+  const syncQuestionPhase = React.useCallback(async (nextState: MillionaireState) => {
+    await updateState(nextState);
+    await refreshTeams();
+  }, [refreshTeams, updateState]);
+
   React.useEffect(() => {
     if (room?.id) {
       void updateRoomMeta(room.id, {
@@ -336,12 +340,7 @@ export function MillionaireGame({ roomCode }: { roomCode: string }) {
       timerStartedAt: null,
       timerDurationSeconds: null,
     });
-  }, [isHost, state, timerRemaining]);
-
-  async function syncQuestionPhase(nextState: MillionaireState) {
-    await updateState(nextState);
-    await refreshTeams();
-  }
+  }, [isHost, state, syncQuestionPhase, timerRemaining]);
 
   async function changeSetupMode(mode: MillionaireState["setupMode"]) {
     await syncQuestionPhase({

@@ -1,6 +1,6 @@
 import React from "react";
 import { createHashAppPath, getPathWithoutBase } from "../shared/routing/basePath";
-import { isAuthenticated, logout } from "../core/auth/authStorage";
+import { useAuth } from "../core/auth/useAuth";
 import { routes } from "../core/config/routes";
 import { getSessionSnapshot } from "../utils/storage";
 import { clearSession } from "../utils/storage";
@@ -8,17 +8,20 @@ import { AuthPage } from "../pages/AuthPage";
 import { HomePage } from "../pages/HomePage";
 import { AppGamesPage } from "../pages/AppGamesPage";
 import { AppSettingsPage } from "../pages/AppSettingsPage";
-import { StartPage } from "../pages/StartPage";
-import { GameJoinPage } from "../pages/GameJoinPage";
-import { RoomLobbyPage } from "../pages/RoomLobbyPage";
-import { GameHubPage } from "../pages/GameHubPage";
-import { ImportPackPage } from "../pages/ImportPackPage";
-import { SettingsPage } from "../pages/SettingsPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
-import { GameShell } from "../core/games/GameShell";
 import { PlayerProvider } from "../core/player/PlayerProvider";
 import { RoomProvider } from "../core/room/RoomProvider";
 import { PrimaryNav } from "../core/layout/PrimaryNav";
+
+const StartPage = React.lazy(() => import("../pages/StartPage").then((module) => ({ default: module.StartPage })));
+const GameJoinPage = React.lazy(() => import("../pages/GameJoinPage").then((module) => ({ default: module.GameJoinPage })));
+const RoomLobbyPage = React.lazy(() => import("../pages/RoomLobbyPage").then((module) => ({ default: module.RoomLobbyPage })));
+const GameHubPage = React.lazy(() => import("../pages/GameHubPage").then((module) => ({ default: module.GameHubPage })));
+const ImportPackPage = React.lazy(() => import("../pages/ImportPackPage").then((module) => ({ default: module.ImportPackPage })));
+const SettingsPage = React.lazy(() => import("../pages/SettingsPage").then((module) => ({ default: module.SettingsPage })));
+const GameShell = React.lazy(() => import("../core/games/GameShell").then((module) => ({ default: module.GameShell })));
+const MafiaJoinPage = React.lazy(() => import("../pages/MafiaJoinPage").then((module) => ({ default: module.MafiaJoinPage })));
+const MafiaGameWrapper = React.lazy(() => import("../games/mafia/MafiaGameWrapper").then((module) => ({ default: module.MafiaGameWrapper })));
 
 type ParsedRoute =
   | { name: "auth" }
@@ -35,20 +38,21 @@ type ParsedRoute =
   | { name: "not-found" };
 
 export function Router() {
+  return <React.Suspense fallback={<RouteLoading />}><RouterContent /></React.Suspense>;
+}
+
+function RouterContent() {
   const [route, setRoute] = React.useState<ParsedRoute>(() => parseRoute());
-  const [authed, setAuthed] = React.useState(() => isAuthenticated());
+  const { status, profile, signOut } = useAuth();
 
   React.useEffect(() => {
     const handleChange = () => setRoute(parseRoute());
-    const handleStorage = () => setAuthed(isAuthenticated());
     window.addEventListener("hashchange", handleChange);
     window.addEventListener("popstate", handleChange);
-    window.addEventListener("storage", handleStorage);
 
     return () => {
       window.removeEventListener("hashchange", handleChange);
       window.removeEventListener("popstate", handleChange);
-      window.removeEventListener("storage", handleStorage);
     };
   }, []);
 
@@ -57,14 +61,31 @@ export function Router() {
     setRoute(parseRoute());
   }
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await signOut();
     clearSession();
-    setAuthed(false);
     navigate(routes.auth);
   }
 
+  if (status === "loading") {
+    return (
+      <main className="mafia-loading-screen" aria-live="polite">
+        <div className="mafia-loading-mark">M</div>
+        <p>Подготавливаем город…</p>
+      </main>
+    );
+  }
+
+  const needsProfile = status === "authenticated" && (!profile || profile.displayName === "Игрок");
+
+  if (status !== "authenticated" || needsProfile) {
+    return <AuthPage navigate={navigate} />;
+  }
+
   if (route.name === "game-join") {
+    if (route.gameId === "mafia") {
+      return <MafiaJoinPage roomCode={route.roomCode} navigate={navigate} />;
+    }
     return (
       <GameJoinPage
         gameId={route.gameId}
@@ -74,21 +95,10 @@ export function Router() {
     );
   }
 
-  if (!authed) {
-    return (
-      <AuthPage
-        navigate={navigate}
-        onSuccess={() => {
-          setAuthed(true);
-        }}
-      />
-    );
-  }
-
   if (route.name === "auth" || route.name === "home") {
     return (
       <>
-        <HomePage navigate={navigate} onLogout={handleLogout} />
+        <HomePage navigate={navigate} onLogout={() => void handleLogout()} />
         <PrimaryNav currentPath={routes.home} onNavigate={navigate} />
       </>
     );
@@ -106,7 +116,7 @@ export function Router() {
   if (route.name === "settings-hub") {
     return (
       <>
-        <AppSettingsPage onLogout={handleLogout} />
+        <AppSettingsPage onLogout={() => void handleLogout()} />
         <PrimaryNav currentPath={routes.settingsHub} onNavigate={navigate} />
       </>
     );
@@ -118,6 +128,10 @@ export function Router() {
 
   if (route.name === "not-found") {
     return <NotFoundPage onHome={() => navigate(routes.home)} />;
+  }
+
+  if (route.name === "game" && route.gameId === "mafia") {
+    return <MafiaGameWrapper roomCode={route.roomCode} />;
   }
 
   if (!hasActiveSession(route.roomCode)) {
@@ -142,6 +156,10 @@ export function Router() {
       </PlayerProvider>
     </RoomProvider>
   );
+}
+
+function RouteLoading() {
+  return <main className="mafia-loading-screen" aria-live="polite"><div className="mafia-loading-mark">M</div><p>Загружаем сцену…</p></main>;
 }
 
 function hasActiveSession(roomCode: string) {

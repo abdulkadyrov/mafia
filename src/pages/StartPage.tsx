@@ -18,8 +18,22 @@ import {
 import { persistSession } from "../utils/storage";
 import { FloatingBackButton } from "../core/layout/FloatingBackButton";
 import { gameRegistry } from "../core/games/gameRegistry";
+import { MafiaStartScreen } from "../features/room/MafiaStartScreen";
 
 export function StartPage({
+  navigate,
+  targetGameId,
+}: {
+  navigate: (path: string) => void;
+  targetGameId?: string;
+}) {
+  if (targetGameId === "mafia") {
+    return <MafiaStartScreen navigate={navigate} />;
+  }
+  return <LegacyStartPage navigate={navigate} targetGameId={targetGameId} />;
+}
+
+function LegacyStartPage({
   navigate,
   targetGameId,
 }: {
@@ -186,7 +200,7 @@ export function StartPage({
             {supabaseError ? (
               <p className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-100">
                 Supabase не настроен. Заполните `VITE_SUPABASE_URL` и
-                `VITE_SUPABASE_ANON_KEY`.
+                `VITE_SUPABASE_PUBLISHABLE_KEY`.
               </p>
             ) : null}
           </Card>

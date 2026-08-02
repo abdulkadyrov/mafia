@@ -1,7 +1,10 @@
 @import "./index.css";
+@import "./mafia-theme.css";
+@import "./animations.css";
+@import "./responsive.css";
 
 body {
   background: #020617;
   color: #ffffff;
+  overflow-x: hidden;
 }
-

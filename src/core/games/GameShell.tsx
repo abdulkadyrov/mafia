@@ -1,3 +1,4 @@
+import React from "react";
 import { gameRegistry } from "./gameRegistry";
 
 export function GameShell({
@@ -18,6 +19,5 @@ export function GameShell({
   }
 
   const Component = game.component;
-  return <Component roomCode={roomCode} />;
+  return <React.Suspense fallback={<div className="mafia-loading-screen"><div className="mafia-loading-mark">M</div><p>Загружаем игру…</p></div>}><Component roomCode={roomCode} /></React.Suspense>;
 }
-

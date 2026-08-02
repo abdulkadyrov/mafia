@@ -51,7 +51,7 @@ export function PlayerActionPanel({
 
   React.useEffect(() => {
     setSelectedAction(getDefaultNightAction(selfPlayer));
-  }, [selfPlayer.id, selfPlayer.role, snapshot.phase]);
+  }, [selfPlayer, snapshot.phase]);
 
   return (
     <section className="grid min-h-0 gap-3">
