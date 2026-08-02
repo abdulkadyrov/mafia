@@ -12,8 +12,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
@@ -57,7 +57,7 @@ jobs:
       - name: Browser and PWA tests
         run: npm run test:e2e
 
-      - name: Upload Pages artifact
+      - name: Build Pages bundle
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
