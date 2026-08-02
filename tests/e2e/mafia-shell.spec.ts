@@ -5,7 +5,7 @@ test("renders the secure production entry without horizontal overflow", async ({
 
   await expect(page).toHaveTitle('Мафия "Абдулкадыров"');
   await expect(
-    page.getByRole("heading", { name: /Вход по телефону|Подключите игровой сервер/ })
+    page.getByRole("heading", { name: /Вход в игру|Подключите игровой сервер/ })
   ).toBeVisible();
   await expect(page.locator(".mafia-wordmark")).toContainText("MAFIA");
 

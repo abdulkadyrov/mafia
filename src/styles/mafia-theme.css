@@ -144,7 +144,6 @@
 .mafia-auth-form input:focus,
 .mafia-field input:focus,
 .mafia-field select:focus { border-color: rgba(199, 165, 91, 0.8); box-shadow: 0 0 0 3px rgba(199, 165, 91, 0.1); }
-.mafia-otp-input { text-align: center; font-size: 1.65rem !important; font-weight: 900; letter-spacing: 0.45em; }
 .mafia-auth-form .mafia-primary-button { width: 100%; margin-top: 0.5rem; }
 
 /* Home */

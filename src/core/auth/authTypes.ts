@@ -23,8 +23,8 @@ export type AuthContextValue = {
   user: AuthUser | null;
   profile: UserProfile | null;
   configurationError: string | null;
-  requestPhoneOtp: (phone: string) => Promise<string>;
-  verifyPhoneOtp: (phone: string, token: string) => Promise<void>;
+  signInWithPhonePassword: (phone: string, password: string) => Promise<string>;
+  signUpWithPhonePassword: (phone: string, password: string) => Promise<string>;
   saveDisplayName: (displayName: string) => Promise<void>;
   updateAvatar: (file: File) => Promise<string>;
   removeAvatar: () => Promise<void>;

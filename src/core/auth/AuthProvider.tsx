@@ -2,7 +2,12 @@ import React from "react";
 import { getSupabaseConfigError, isSupabaseConfigured, supabase } from "../supabase/client";
 import type { AuthContextValue, AuthUser, UserProfile } from "./authTypes";
 import { deleteAvatar, loadProfile, toAuthUser, updateDisplayName, uploadAvatar } from "./authService";
-import { normalizePhone, requestPhoneOtp, verifyPhoneOtp } from "./phoneAuthService";
+import {
+  normalizePhone,
+  signInWithPhonePassword,
+  signUpWithPhonePassword,
+  validatePassword,
+} from "./phonePasswordAuthService";
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 const DEV_SESSION_KEY = "mafia-dev-auth-session";
@@ -62,21 +67,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     profile,
     configurationError: status === "unconfigured" ? getSupabaseConfigError() : null,
-    requestPhoneOtp: async (rawPhone) => {
-      if (devAuthEnabled) return normalizePhone(rawPhone);
-      return requestPhoneOtp(rawPhone);
-    },
-    verifyPhoneOtp: async (rawPhone, token) => {
+    signInWithPhonePassword: async (rawPhone, password) => {
       const phone = normalizePhone(rawPhone);
+      validatePassword(password);
       if (devAuthEnabled) {
-        const expected = import.meta.env.VITE_MAFIA_DEV_OTP || "000000";
-        if (token !== expected) throw new Error("Неверный код локального режима");
         const nextUser = { id: "00000000-0000-4000-8000-000000000001", phone };
         window.localStorage.setItem(DEV_SESSION_KEY, JSON.stringify(nextUser));
         await applyUser(nextUser);
-        return;
+        return phone;
       }
-      await verifyPhoneOtp(phone, token);
+      return signInWithPhonePassword(phone, password);
+    },
+    signUpWithPhonePassword: async (rawPhone, password) => {
+      const phone = normalizePhone(rawPhone);
+      validatePassword(password);
+      if (devAuthEnabled) {
+        const nextUser = { id: "00000000-0000-4000-8000-000000000001", phone };
+        window.localStorage.setItem(DEV_SESSION_KEY, JSON.stringify(nextUser));
+        await applyUser(nextUser);
+        return phone;
+      }
+      return signUpWithPhonePassword(phone, password);
     },
     saveDisplayName: async (displayName) => {
       if (!user) throw new Error("Войдите в аккаунт");

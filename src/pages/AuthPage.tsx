@@ -4,16 +4,17 @@ import { motion } from "framer-motion";
 import { useAuth } from "../core/auth/useAuth";
 import { routes } from "../core/config/routes";
 
-type Step = "phone" | "otp" | "profile";
+type Step = "credentials" | "profile";
+type AuthMode = "sign-in" | "sign-up";
 
 export function AuthPage({ navigate }: { navigate: (path: string) => void }) {
   const auth = useAuth();
   const [step, setStep] = React.useState<Step>(() =>
-    auth.status === "authenticated" ? "profile" : "phone"
+    auth.status === "authenticated" ? "profile" : "credentials"
   );
+  const [mode, setMode] = React.useState<AuthMode>("sign-in");
   const [phone, setPhone] = React.useState("");
-  const [normalizedPhone, setNormalizedPhone] = React.useState("");
-  const [otp, setOtp] = React.useState("");
+  const [password, setPassword] = React.useState("");
   const [displayName, setDisplayName] = React.useState(
     auth.profile?.displayName === "Игрок" ? "" : auth.profile?.displayName ?? ""
   );
@@ -26,17 +27,12 @@ export function AuthPage({ navigate }: { navigate: (path: string) => void }) {
     }
   }, [auth.profile, auth.status, navigate]);
 
-  async function submitPhone() {
+  async function submitCredentials() {
     await run(async () => {
-      const cleanPhone = await auth.requestPhoneOtp(phone);
-      setNormalizedPhone(cleanPhone);
-      setStep("otp");
-    });
-  }
-
-  async function submitOtp() {
-    await run(async () => {
-      await auth.verifyPhoneOtp(normalizedPhone || phone, otp);
+      const cleanPhone = mode === "sign-in"
+        ? await auth.signInWithPhonePassword(phone, password)
+        : await auth.signUpWithPhonePassword(phone, password);
+      setPhone(cleanPhone);
       setStep("profile");
     });
   }
@@ -85,11 +81,11 @@ export function AuthPage({ navigate }: { navigate: (path: string) => void }) {
           </div>
         ) : null}
 
-        {auth.status !== "unconfigured" && step === "phone" ? (
-          <form className="mafia-auth-form" onSubmit={(event) => { event.preventDefault(); void submitPhone(); }}>
-            <p className="mafia-step-label">Шаг 1 из 3</p>
-            <h1>Вход по телефону</h1>
-            <p>Мы отправим одноразовый шестизначный код. Номер не увидят другие игроки.</p>
+        {auth.status !== "unconfigured" && step === "credentials" ? (
+          <form className="mafia-auth-form" onSubmit={(event) => { event.preventDefault(); void submitCredentials(); }}>
+            <p className="mafia-step-label">Без SMS и подтверждений</p>
+            <h1>{mode === "sign-in" ? "Вход в игру" : "Создать аккаунт"}</h1>
+            <p>Введите номер телефона и пароль. Номер не увидят другие игроки.</p>
             <label>
               <span>Номер телефона</span>
               <input
@@ -101,42 +97,38 @@ export function AuthPage({ navigate }: { navigate: (path: string) => void }) {
                 placeholder="+7 999 123-45-67"
               />
             </label>
-            <button className="mafia-primary-button" disabled={isSubmitting} type="submit">
-              {isSubmitting ? "Отправляем…" : "Получить SMS-код"}
-            </button>
-          </form>
-        ) : null}
-
-        {auth.status !== "unconfigured" && step === "otp" ? (
-          <form className="mafia-auth-form" onSubmit={(event) => { event.preventDefault(); void submitOtp(); }}>
-            <p className="mafia-step-label">Шаг 2 из 3</p>
-            <h1>Введите код</h1>
-            <p>Код отправлен на {normalizedPhone}. Он действует ограниченное время.</p>
             <label>
-              <span>SMS-код</span>
+              <span>Пароль</span>
               <input
-                autoFocus
-                className="mafia-otp-input"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={otp}
-                onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
-                placeholder="000000"
+                type="password"
+                autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+                minLength={6}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Минимум 6 символов"
               />
             </label>
-            <button className="mafia-primary-button" disabled={isSubmitting || otp.length !== 6} type="submit">
-              {isSubmitting ? "Проверяем…" : "Подтвердить код"}
+            <button className="mafia-primary-button" disabled={isSubmitting || password.length < 6} type="submit">
+              {isSubmitting
+                ? mode === "sign-in" ? "Входим…" : "Создаём…"
+                : mode === "sign-in" ? "Войти" : "Создать аккаунт"}
             </button>
-            <button className="mafia-link-button" type="button" onClick={() => { setOtp(""); setStep("phone"); }}>
-              Изменить номер
+            <button
+              className="mafia-link-button"
+              type="button"
+              onClick={() => {
+                setError("");
+                setMode((current) => current === "sign-in" ? "sign-up" : "sign-in");
+              }}
+            >
+              {mode === "sign-in" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
             </button>
           </form>
         ) : null}
 
         {auth.status !== "unconfigured" && step === "profile" ? (
           <form className="mafia-auth-form" onSubmit={(event) => { event.preventDefault(); void submitProfile(); }}>
-            <p className="mafia-step-label">Шаг 3 из 3</p>
+            <p className="mafia-step-label">Профиль игрока</p>
             <h1>Как вас называть?</h1>
             <p>Это имя увидят игроки в лобби, видеосетке и результатах партии.</p>
             <label>
