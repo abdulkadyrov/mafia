@@ -1,0 +1,607 @@
+{
+  "generatedAt": "2026-08-02T22:56:23.075Z",
+  "files": [
+    {
+      "path": "/assets/mafia/avatars/default.avif",
+      "bytes": 10516,
+      "width": 512,
+      "height": 512,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/avatars/default.webp",
+      "bytes": 14398,
+      "width": 512,
+      "height": 512,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/city-win-desktop.avif",
+      "bytes": 74600,
+      "width": 1920,
+      "height": 1080,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/city-win-desktop.webp",
+      "bytes": 105772,
+      "width": 1920,
+      "height": 1080,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/city-win-phone.avif",
+      "bytes": 52536,
+      "width": 1080,
+      "height": 1920,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/city-win-phone.webp",
+      "bytes": 76068,
+      "width": 1080,
+      "height": 1920,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/city-win-tablet.avif",
+      "bytes": 73704,
+      "width": 1536,
+      "height": 2048,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/city-win-tablet.webp",
+      "bytes": 107186,
+      "width": 1536,
+      "height": 2048,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/create-desktop.avif",
+      "bytes": 44384,
+      "width": 1920,
+      "height": 1080,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/create-desktop.webp",
+      "bytes": 60026,
+      "width": 1920,
+      "height": 1080,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/create-phone.avif",
+      "bytes": 34283,
+      "width": 1080,
+      "height": 1920,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/create-phone.webp",
+      "bytes": 48924,
+      "width": 1080,
+      "height": 1920,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/create-tablet.avif",
+      "bytes": 46468,
+      "width": 1536,
+      "height": 2048,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/create-tablet.webp",
+      "bytes": 67670,
+      "width": 1536,
+      "height": 2048,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/day-desktop.avif",
+      "bytes": 95268,
+      "width": 1920,
+      "height": 1080,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/day-desktop.webp",
+      "bytes": 145668,
+      "width": 1920,
+      "height": 1080,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/day-phone.avif",
+      "bytes": 64023,
+      "width": 1080,
+      "height": 1920,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/day-phone.webp",
+      "bytes": 107500,
+      "width": 1080,
+      "height": 1920,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/day-tablet.avif",
+      "bytes": 89630,
+      "width": 1536,
+      "height": 2048,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/day-tablet.webp",
+      "bytes": 149638,
+      "width": 1536,
+      "height": 2048,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/defeat-desktop.avif",
+      "bytes": 74095,
+      "width": 1920,
+      "height": 1080,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/defeat-desktop.webp",
+      "bytes": 97186,
+      "width": 1920,
+      "height": 1080,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/defeat-phone.avif",
+      "bytes": 53665,
+      "width": 1080,
+      "height": 1920,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/defeat-phone.webp",
+      "bytes": 74692,
+      "width": 1080,
+      "height": 1920,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/defeat-tablet.avif",
+      "bytes": 76708,
+      "width": 1536,
+      "height": 2048,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/defeat-tablet.webp",
+      "bytes": 106004,
+      "width": 1536,
+      "height": 2048,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/home-desktop.avif",
+      "bytes": 71471,
+      "width": 1920,
+      "height": 1080,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/home-desktop.webp",
+      "bytes": 98428,
+      "width": 1920,
+      "height": 1080,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/home-phone.avif",
+      "bytes": 52054,
+      "width": 1080,
+      "height": 1920,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/home-phone.webp",
+      "bytes": 66894,
+      "width": 1080,
+      "height": 1920,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/home-tablet.avif",
+      "bytes": 74517,
+      "width": 1536,
+      "height": 2048,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/home-tablet.webp",
+      "bytes": 97972,
+      "width": 1536,
+      "height": 2048,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/lobby-desktop.avif",
+      "bytes": 75115,
+      "width": 1920,
+      "height": 1080,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/lobby-desktop.webp",
+      "bytes": 103976,
+      "width": 1920,
+      "height": 1080,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/lobby-phone.avif",
+      "bytes": 58256,
+      "width": 1080,
+      "height": 1920,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/lobby-phone.webp",
+      "bytes": 81308,
+      "width": 1080,
+      "height": 1920,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/lobby-tablet.avif",
+      "bytes": 84846,
+      "width": 1536,
+      "height": 2048,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/lobby-tablet.webp",
+      "bytes": 119718,
+      "width": 1536,
+      "height": 2048,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/mafia-win-desktop.avif",
+      "bytes": 46730,
+      "width": 1920,
+      "height": 1080,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/mafia-win-desktop.webp",
+      "bytes": 60934,
+      "width": 1920,
+      "height": 1080,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/mafia-win-phone.avif",
+      "bytes": 32396,
+      "width": 1080,
+      "height": 1920,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/mafia-win-phone.webp",
+      "bytes": 41192,
+      "width": 1080,
+      "height": 1920,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/mafia-win-tablet.avif",
+      "bytes": 47508,
+      "width": 1536,
+      "height": 2048,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/mafia-win-tablet.webp",
+      "bytes": 60162,
+      "width": 1536,
+      "height": 2048,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/night-desktop.avif",
+      "bytes": 46329,
+      "width": 1920,
+      "height": 1080,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/night-desktop.webp",
+      "bytes": 53160,
+      "width": 1920,
+      "height": 1080,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/night-phone.avif",
+      "bytes": 41482,
+      "width": 1080,
+      "height": 1920,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/night-phone.webp",
+      "bytes": 50556,
+      "width": 1080,
+      "height": 1920,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/night-tablet.avif",
+      "bytes": 57485,
+      "width": 1536,
+      "height": 2048,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/night-tablet.webp",
+      "bytes": 69896,
+      "width": 1536,
+      "height": 2048,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/results-desktop.avif",
+      "bytes": 56835,
+      "width": 1920,
+      "height": 1080,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/results-desktop.webp",
+      "bytes": 81730,
+      "width": 1920,
+      "height": 1080,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/results-phone.avif",
+      "bytes": 37891,
+      "width": 1080,
+      "height": 1920,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/results-phone.webp",
+      "bytes": 53330,
+      "width": 1080,
+      "height": 1920,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/results-tablet.avif",
+      "bytes": 53453,
+      "width": 1536,
+      "height": 2048,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/results-tablet.webp",
+      "bytes": 78842,
+      "width": 1536,
+      "height": 2048,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/voting-desktop.avif",
+      "bytes": 61758,
+      "width": 1920,
+      "height": 1080,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/voting-desktop.webp",
+      "bytes": 84866,
+      "width": 1920,
+      "height": 1080,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/voting-phone.avif",
+      "bytes": 43506,
+      "width": 1080,
+      "height": 1920,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/voting-phone.webp",
+      "bytes": 57450,
+      "width": 1080,
+      "height": 1920,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/voting-tablet.avif",
+      "bytes": 64874,
+      "width": 1536,
+      "height": 2048,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/backgrounds/voting-tablet.webp",
+      "bytes": 90900,
+      "width": 1536,
+      "height": 2048,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/roles/bodyguard.avif",
+      "bytes": 47094,
+      "width": 768,
+      "height": 1152,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/roles/bodyguard.webp",
+      "bytes": 71230,
+      "width": 768,
+      "height": 1152,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/roles/civilian.avif",
+      "bytes": 39352,
+      "width": 768,
+      "height": 1152,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/roles/civilian.webp",
+      "bytes": 64732,
+      "width": 768,
+      "height": 1152,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/roles/commissioner.avif",
+      "bytes": 36869,
+      "width": 768,
+      "height": 1152,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/roles/commissioner.webp",
+      "bytes": 57854,
+      "width": 768,
+      "height": 1152,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/roles/doctor.avif",
+      "bytes": 41566,
+      "width": 768,
+      "height": 1152,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/roles/doctor.webp",
+      "bytes": 66166,
+      "width": 768,
+      "height": 1152,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/roles/don.avif",
+      "bytes": 28384,
+      "width": 768,
+      "height": 1152,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/roles/don.webp",
+      "bytes": 44580,
+      "width": 768,
+      "height": 1152,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/roles/host.avif",
+      "bytes": 41066,
+      "width": 768,
+      "height": 1152,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/roles/host.webp",
+      "bytes": 63002,
+      "width": 768,
+      "height": 1152,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/roles/mafia.avif",
+      "bytes": 25791,
+      "width": 768,
+      "height": 1152,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/roles/mafia.webp",
+      "bytes": 39274,
+      "width": 768,
+      "height": 1152,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/roles/maniac.avif",
+      "bytes": 43013,
+      "width": 768,
+      "height": 1152,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/roles/maniac.webp",
+      "bytes": 64588,
+      "width": 768,
+      "height": 1152,
+      "format": "webp"
+    },
+    {
+      "path": "/assets/mafia/roles/mistress.avif",
+      "bytes": 45789,
+      "width": 768,
+      "height": 1152,
+      "format": "heif"
+    },
+    {
+      "path": "/assets/mafia/roles/mistress.webp",
+      "bytes": 67340,
+      "width": 768,
+      "height": 1152,
+      "format": "webp"
+    },
+    {
+      "path": "/icons/mafia-180.png",
+      "bytes": 10969,
+      "width": 180,
+      "height": 180,
+      "format": "png"
+    },
+    {
+      "path": "/icons/mafia-192.png",
+      "bytes": 11818,
+      "width": 192,
+      "height": 192,
+      "format": "png"
+    },
+    {
+      "path": "/icons/mafia-512.png",
+      "bytes": 33956,
+      "width": 512,
+      "height": 512,
+      "format": "png"
+    },
+    {
+      "path": "/icons/mafia-maskable-512.png",
+      "bytes": 28237,
+      "width": 512,
+      "height": 512,
+      "format": "png"
+    },
+    {
+      "path": "/icons/mafia-splash-1170x2532.png",
+      "bytes": 16729,
+      "width": 1170,
+      "height": 2532,
+      "format": "png"
+    },
+    {
+      "path": "/icons/mafia-splash-2048x2732.png",
+      "bytes": 35231,
+      "width": 2048,
+      "height": 2732,
+      "format": "png"
+    }
+  ]
+}
