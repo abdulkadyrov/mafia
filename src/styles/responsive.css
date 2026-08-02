@@ -1,0 +1,91 @@
+@media (max-width: 1100px) {
+  .mafia-cinematic-bg { background-image: var(--mafia-bg-tablet); }
+  .mafia-player-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .mafia-voting-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .mafia-results-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mafia-recent-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 860px) {
+  .mafia-auth-card { grid-template-columns: 1fr; }
+  .mafia-wordmark { min-height: 260px; padding: 2rem 1rem; }
+  .mafia-wordmark strong { font-size: clamp(4rem, 20vw, 6rem); }
+  .mafia-lobby-layout,
+  .mafia-night-layout.with-chat,
+  .mafia-discussion-layout { grid-template-columns: 1fr; }
+  .mafia-lobby-sidebar { min-height: 420px; }
+  .mafia-discussion-layout > aside { min-height: 390px; border: 1px solid var(--mafia-line); border-radius: 12px; background: rgba(9, 11, 12, 0.83); padding: 1rem; }
+  .mafia-target-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mafia-video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mafia-timeline > div { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .mafia-cinematic-bg { background-position: center; }
+  .mafia-cinematic-bg { background-image: var(--mafia-bg-phone); }
+  .mafia-home-content { width: min(100% - 1rem, 1180px); }
+  .mafia-profile-chip { max-width: calc(100vw - 70px); }
+  .mafia-profile-chip > div:last-child { min-width: 0; }
+  .mafia-profile-chip strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mafia-hero { min-height: 69dvh; align-items: center; text-align: center; }
+  .mafia-hero h1 { font-size: clamp(4.5rem, 26vw, 7.2rem); }
+  .mafia-hero-actions { width: 100%; flex-direction: column; }
+  .mafia-hero-actions button { width: 100%; }
+  .mafia-recent-grid { grid-template-columns: 1fr; }
+  .mafia-create-page { padding: 0; }
+  .mafia-dialog-shell { min-height: 100dvh; margin: 0; border-width: 0; border-radius: 0; padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(1rem, env(safe-area-inset-bottom)); }
+  .mafia-two-columns,
+  .mafia-three-columns,
+  .mafia-toggle-grid { grid-template-columns: 1fr; }
+  .mafia-role-counters { grid-template-columns: repeat(2, 1fr); }
+  .mafia-game-shell,
+  .mafia-night-shell,
+  .mafia-day-shell,
+  .mafia-results-shell { width: min(100% - 0.75rem, 1480px); }
+  .mafia-room-header { gap: 0.45rem; }
+  .mafia-room-header-actions > span { display: none; }
+  .mafia-section-heading { align-items: flex-start; }
+  .mafia-share-button { padding: 0.55rem 0.7rem; font-size: 0.66rem; }
+  .mafia-player-grid,
+  .mafia-voting-grid,
+  .mafia-target-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mafia-player-card { min-height: 132px; }
+  .mafia-action-bar { overflow-x: auto; justify-content: flex-start; }
+  .mafia-action-bar > button { flex: 1 0 auto; }
+  .mafia-action-bar .mafia-muted-copy { display: none; }
+  .mafia-lobby-actions { justify-content: flex-start; }
+  .mafia-lobby-actions > .mafia-primary-button,
+  .mafia-lobby-actions > .mafia-secondary-button { min-width: 145px; }
+  .mafia-video-controls { flex-wrap: nowrap; }
+  .mafia-video-controls button { padding: 0.55rem 0.7rem; font-size: 0.66rem; }
+  .mafia-phase-header { align-items: center; }
+  .mafia-phase-header h1 { font-size: 1.9rem; }
+  .mafia-phase-header p { display: none; }
+  .mafia-sleeping-state { min-height: 60dvh; }
+  .mafia-night-action-panel { padding: 0.7rem; }
+  .mafia-discussion-video { padding: 0.55rem; }
+  .mafia-video-tile,
+  .mafia-video-tile video,
+  .mafia-video-placeholder { min-height: 124px; }
+  .mafia-announcement-panel,
+  .mafia-execution-panel { min-height: 58dvh; }
+  .mafia-results-header { min-height: 28dvh; padding: 2rem 0 1rem; }
+  .mafia-results-grid { grid-template-columns: 1fr; }
+  .mafia-timeline > div { grid-template-columns: 1fr; }
+  .mafia-results-actions { flex-direction: column-reverse; }
+  .mafia-results-actions button { width: 100%; }
+  .mafia-modal { max-height: calc(100dvh - 0.5rem); border-radius: 10px; }
+  .mafia-toast { right: 0.5rem; bottom: 5.2rem; left: 0.5rem; }
+}
+
+@media (min-width: 1500px) {
+  .mafia-game-shell,
+  .mafia-night-shell,
+  .mafia-day-shell,
+  .mafia-results-shell { max-width: 1680px; }
+  .mafia-player-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .mafia-video-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .mafia-video-tile,
+  .mafia-video-tile video,
+  .mafia-video-placeholder { min-height: 220px; }
+}
