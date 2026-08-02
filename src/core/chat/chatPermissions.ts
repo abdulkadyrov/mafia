@@ -1,5 +1,5 @@
-import type { GamePhase } from "../game/gameTypes";
-import type { ChatActor, ChatChannel } from "./chatTypes";
+import type { GamePhase } from "../game/gameTypes.ts";
+import type { ChatActor, ChatChannel } from "./chatTypes.ts";
 
 export type ChatPolicy = {
   chatEnabled: boolean;

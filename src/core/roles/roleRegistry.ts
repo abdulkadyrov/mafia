@@ -1,4 +1,4 @@
-import type { MafiaRole, RoleDefinition } from "./roleTypes";
+import type { MafiaRole, RoleDefinition } from "./roleTypes.ts";
 
 export const roleRegistry: Record<MafiaRole, RoleDefinition> = {
   mafia: {

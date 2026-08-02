@@ -200,7 +200,7 @@ function LegacyStartPage({
             {supabaseError ? (
               <p className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-100">
                 Supabase не настроен. Заполните `VITE_SUPABASE_URL` и
-                `VITE_SUPABASE_ANON_KEY`.
+                `VITE_SUPABASE_PUBLISHABLE_KEY`.
               </p>
             ) : null}
           </Card>

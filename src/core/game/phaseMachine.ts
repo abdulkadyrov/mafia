@@ -1,5 +1,5 @@
-import type { MafiaRole } from "../roles/roleTypes";
-import type { GamePhase } from "./gameTypes";
+import type { MafiaRole } from "../roles/roleTypes.ts";
+import type { GamePhase } from "./gameTypes.ts";
 
 const fixedTransitions: Partial<Record<GamePhase, readonly GamePhase[]>> = {
   lobby: ["role_reveal"],

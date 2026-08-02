@@ -1,4 +1,4 @@
-import type { DomainGamePlayer } from "./gameTypes";
+import type { DomainGamePlayer } from "./gameTypes.ts";
 
 export type DomainVote = { voterId: string; targetId: string };
 export type VoteResolution = {

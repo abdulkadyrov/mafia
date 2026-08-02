@@ -1,5 +1,5 @@
-import { roleRegistry } from "./roleRegistry";
-import type { MafiaRole, RoleCounts } from "./roleTypes";
+import { roleRegistry } from "./roleRegistry.ts";
+import type { MafiaRole, RoleCounts } from "./roleTypes.ts";
 
 export type RoleAssignment = {
   playerId: string;

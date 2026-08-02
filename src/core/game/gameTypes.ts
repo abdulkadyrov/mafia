@@ -1,4 +1,4 @@
-import type { MafiaRole, MafiaTeam } from "../roles/roleTypes";
+import type { MafiaRole, MafiaTeam } from "../roles/roleTypes.ts";
 
 export type GamePhase =
   | "lobby"

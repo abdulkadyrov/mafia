@@ -1,4 +1,4 @@
-import type { DomainGamePlayer, GameWinner } from "./gameTypes";
+import type { DomainGamePlayer, GameWinner } from "./gameTypes.ts";
 
 export function getWinner(players: readonly DomainGamePlayer[]): GameWinner | null {
   const alive = players.filter((player) => player.lifeStatus === "alive" && player.team !== "host");

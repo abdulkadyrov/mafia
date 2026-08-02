@@ -1,4 +1,4 @@
-import type { DomainGamePlayer, DomainNightAction } from "./gameTypes";
+import type { DomainGamePlayer, DomainNightAction } from "./gameTypes.ts";
 
 export type NightResolution = {
   killedPlayerIds: string[];
