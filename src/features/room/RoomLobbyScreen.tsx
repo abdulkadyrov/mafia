@@ -1,7 +1,7 @@
 import React from "react";
 import { MafiaBackground } from "../../core/ui/MafiaBackground";
 import { mafiaCommands } from "../../core/game/gameCommands";
-import type { MafiaSnapshot } from "../../core/room/mafiaRoomTypes";
+import type { MafiaPlayerView, MafiaSnapshot } from "../../core/room/mafiaRoomTypes";
 import { PlayerCard } from "../../core/ui/PlayerCard";
 import type { DeviceInventory } from "../../core/video/mediaDevices";
 import type { VideoParticipant, VideoProvider } from "../../core/video/videoTypes";
@@ -89,6 +89,24 @@ export function RoomLobbyScreen({
     } catch { /* пользователь закрыл системный диалог */ }
   }
 
+  function playerActions(player: MafiaPlayerView) {
+    if (!snapshot.self.isHost || player.is_host) return undefined;
+    return (
+      <details className="mafia-player-menu">
+        <summary>•••</summary>
+        <div>{player.is_bot ? (
+          <button className="danger" onClick={() => void run("remove-bot", () => mafiaCommands.removeBot(snapshot.room.id, player.id))}>Удалить бота</button>
+        ) : (
+          <>
+            <button onClick={() => void run("host", () => mafiaCommands.transferHost(snapshot.room.id, player.user_id))}>Сделать ведущим</button>
+            <button onClick={() => void run("mute", () => mafiaCommands.hostMute(snapshot.room.id, player.user_id, !player.microphone_blocked))}>{player.microphone_blocked ? "Разрешить микрофон" : "Отключить микрофон"}</button>
+            <button className="danger" onClick={() => void run("kick", () => mafiaCommands.kickPlayer(snapshot.room.id, player.user_id))}>Исключить</button>
+          </>
+        )}</div>
+      </details>
+    );
+  }
+
   return (
     <main className="mafia-page mafia-lobby-page">
       <MafiaBackground name="lobby" />
@@ -113,37 +131,25 @@ export function RoomLobbyScreen({
                 <button className="mafia-secondary-button mafia-share-button" onClick={() => void share()}>Поделиться</button>
               </div>
             </div>
-            <div className="mafia-player-grid">
-              {orderedPlayers.map((player) => (
-                <PlayerCard
-                  key={player.id}
-                  player={player}
-                  actions={snapshot.self.isHost && !player.is_host ? (
-                    <details className="mafia-player-menu">
-                      <summary>•••</summary>
-                      <div>{player.is_bot ? (
-                        <button className="danger" onClick={() => void run("remove-bot", () => mafiaCommands.removeBot(snapshot.room.id, player.id))}>Удалить бота</button>
-                      ) : (
-                        <>
-                          <button onClick={() => void run("host", () => mafiaCommands.transferHost(snapshot.room.id, player.user_id))}>Сделать ведущим</button>
-                          <button onClick={() => void run("mute", () => mafiaCommands.hostMute(snapshot.room.id, player.user_id, !player.microphone_blocked))}>{player.microphone_blocked ? "Разрешить микрофон" : "Отключить микрофон"}</button>
-                          <button className="danger" onClick={() => void run("kick", () => mafiaCommands.kickPlayer(snapshot.room.id, player.user_id))}>Исключить</button>
-                        </>
-                      )}</div>
-                    </details>
-                  ) : undefined}
-                />
-              ))}
-              {Array.from({ length: Math.max(0, Math.min(snapshot.room.max_players, 12) - snapshot.players.length) }, (_, index) => (
-                <div className="mafia-empty-player" key={index}><span>＋</span><strong>Свободно</strong></div>
-              ))}
-            </div>
-
-            {snapshot.room.video_enabled && video.joined ? (
-              <div className="mafia-lobby-video-preview">
-                <VideoGrid players={orderedPlayers} selfUserId={selfPlayer.user_id} localStream={video.localStream} participants={video.participants} outputDeviceId={video.selectedOutputDeviceId} />
+            {snapshot.room.video_enabled ? (
+              <VideoGrid
+                players={orderedPlayers}
+                selfUserId={selfPlayer.user_id}
+                localStream={video.localStream}
+                participants={video.participants}
+                outputDeviceId={video.selectedOutputDeviceId}
+                className="mafia-lobby-player-grid"
+                emptySlots={Math.max(0, Math.min(snapshot.room.max_players, 12) - snapshot.players.length)}
+                actionsForPlayer={playerActions}
+              />
+            ) : (
+              <div className="mafia-player-grid">
+                {orderedPlayers.map((player) => <PlayerCard key={player.id} player={player} actions={playerActions(player)} />)}
+                {Array.from({ length: Math.max(0, Math.min(snapshot.room.max_players, 12) - snapshot.players.length) }, (_, index) => (
+                  <div className="mafia-empty-player" key={index}><span>＋</span><strong>Свободно</strong></div>
+                ))}
               </div>
-            ) : null}
+            )}
           </section>
         </div>
 

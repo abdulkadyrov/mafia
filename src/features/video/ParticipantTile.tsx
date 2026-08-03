@@ -3,7 +3,7 @@ import { Avatar } from "../../core/ui/Avatar";
 import type { MafiaPlayerView } from "../../core/room/mafiaRoomTypes";
 import { useMafiaAudio } from "../../core/audio/MafiaAudioProvider";
 
-export function ParticipantTile({ player, stream, local = false, outputDeviceId = "" }: { player: MafiaPlayerView; stream: MediaStream | null; local?: boolean; outputDeviceId?: string }) {
+export function ParticipantTile({ player, stream, local = false, outputDeviceId = "", actions }: { player: MafiaPlayerView; stream: MediaStream | null; local?: boolean; outputDeviceId?: string; actions?: React.ReactNode }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const { voiceVolume, allMuted } = useMafiaAudio();
   const isSpeaking = useSpeakingIndicator(stream);
@@ -27,10 +27,25 @@ export function ParticipantTile({ player, stream, local = false, outputDeviceId 
     <article className={`mafia-video-tile ${dead ? "mafia-video-tile--dead" : ""}`}>
       <video ref={videoRef} autoPlay playsInline muted={local} className={hasLiveVideo ? "" : "mafia-media-audio-only"} />
       {!hasLiveVideo ? <div className="mafia-video-placeholder"><Avatar name={player.display_name} url={player.avatar_url} size="large" /></div> : null}
+      {player.is_host ? <span className="mafia-video-host-crown" title="Ведущий">♛</span> : null}
+      {actions ? <div className="mafia-video-player-actions" onClick={(event) => event.stopPropagation()}>{actions}</div> : null}
       <div className="mafia-video-label">
-        <span className={isSpeaking ? "mafia-speaking-dot" : hasLiveAudio && !dead ? "mafia-audio-idle-dot" : "mafia-muted-dot"} />
-        <strong>{player.display_name}{local ? " · вы" : ""}</strong>
-        {dead ? <em>Погиб</em> : null}
+        <div className="mafia-video-identity">
+          <span className={isSpeaking ? "mafia-speaking-dot" : hasLiveAudio && !dead ? "mafia-audio-idle-dot" : "mafia-muted-dot"} />
+          <strong>{player.display_name}{local ? " · вы" : ""}</strong>
+          {player.is_bot ? <span className="mafia-bot-badge">BOT</span> : null}
+          {dead ? <em>Погиб</em> : null}
+        </div>
+        <div className="mafia-video-player-state">
+          <span className={`mafia-player-state ${player.is_ready ? "mafia-player-state--ready" : ""}`}>{dead ? "Погиб" : player.is_ready ? "Готов" : "Не готов"}</span>
+          {player.is_bot ? <span className="mafia-video-bot-level">◆ Средний</span> : (
+            <span className="mafia-video-device-state">
+              <i className={player.microphone_enabled && !player.microphone_blocked ? "on" : "off"}>{player.microphone_enabled ? "● Мик" : "○ Мик"}</i>
+              <i className={player.camera_enabled ? "on" : "off"}>{player.camera_enabled ? "● Кам" : "○ Кам"}</i>
+              <i className={`quality quality--${player.connection_quality}`}>◉</i>
+            </span>
+          )}
+        </div>
       </div>
       <button
         className="mafia-fullscreen-button"

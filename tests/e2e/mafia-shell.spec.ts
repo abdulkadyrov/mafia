@@ -74,6 +74,60 @@ test("keeps mobile lobby controls compact and free of horizontal scrolling", asy
   expect(geometry.iconFontSize).toBeGreaterThanOrEqual(20);
 });
 
+test("shows lobby players as a four-column video grid with overlay details", async ({ page }) => {
+  await page.setViewportSize({ width: 345, height: 613 });
+  await page.goto("./");
+  await page.locator("#root").evaluate((root) => {
+    const emptyTiles = Array.from({ length: 7 }, () => `
+      <article class="mafia-video-tile mafia-video-tile--empty"><span>＋</span><strong>Свободно</strong></article>
+    `).join("");
+    root.innerHTML = `
+      <main class="mafia-page mafia-lobby-page">
+        <div class="mafia-game-shell">
+          <section class="mafia-lobby-main">
+            <section class="mafia-video-grid mafia-lobby-player-grid">
+              <article class="mafia-video-tile">
+                <div class="mafia-video-placeholder"><div class="mafia-avatar mafia-avatar--large">Р</div></div>
+                <span class="mafia-video-host-crown">♛</span>
+                <button class="mafia-fullscreen-button">⛶</button>
+                <div class="mafia-video-label">
+                  <div class="mafia-video-identity"><span class="mafia-audio-idle-dot"></span><strong>роза · вы</strong></div>
+                  <div class="mafia-video-player-state">
+                    <span class="mafia-player-state mafia-player-state--ready">Готов</span>
+                    <span class="mafia-video-device-state"><i class="on">● Мик</i><i class="on">● Кам</i><i>◉</i></span>
+                  </div>
+                </div>
+              </article>
+              ${emptyTiles}
+            </section>
+          </section>
+        </div>
+      </main>`;
+  });
+
+  const geometry = await page.evaluate(() => {
+    const grid = document.querySelector<HTMLElement>(".mafia-lobby-player-grid")!;
+    const tile = document.querySelector<HTMLElement>(".mafia-video-tile")!;
+    const label = document.querySelector<HTMLElement>(".mafia-video-label")!;
+    const tileRect = tile.getBoundingClientRect();
+    const labelRect = label.getBoundingClientRect();
+    return {
+      columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+      tiles: grid.children.length,
+      labelInsideTile: labelRect.left >= tileRect.left && labelRect.right <= tileRect.right && labelRect.bottom <= tileRect.bottom,
+      pageOverflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    };
+  });
+
+  expect(geometry.columns).toBe(4);
+  expect(geometry.tiles).toBe(8);
+  expect(geometry.labelInsideTile).toBe(true);
+  expect(geometry.pageOverflows).toBe(false);
+  await expect(page.locator(".mafia-video-label")).toContainText("роза · вы");
+  await expect(page.locator(".mafia-video-label")).toContainText("● Мик");
+  await expect(page.locator(".mafia-video-label")).toContainText("● Кам");
+});
+
 test("publishes a valid Mafia PWA manifest and service worker", async ({ request }) => {
   const manifestResponse = await request.get("manifest.json");
   expect(manifestResponse.ok()).toBe(true);

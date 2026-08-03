@@ -132,6 +132,28 @@
   .mafia-video-tile,
   .mafia-video-tile video,
   .mafia-video-placeholder { min-height: 124px; }
+  .mafia-lobby-player-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.28rem; }
+  .mafia-lobby-player-grid .mafia-video-tile,
+  .mafia-lobby-player-grid .mafia-video-tile video,
+  .mafia-lobby-player-grid .mafia-video-placeholder { min-height: 106px; }
+  .mafia-lobby-player-grid .mafia-video-tile { border-radius: 7px; }
+  .mafia-lobby-player-grid .mafia-video-placeholder .mafia-avatar--large { width: 42px; height: 42px; font-size: 0.7rem; }
+  .mafia-lobby-player-grid .mafia-video-label { gap: 0.08rem; padding: 1.35rem 0.24rem 0.22rem; font-size: 0.49rem; }
+  .mafia-lobby-player-grid .mafia-video-identity { gap: 0.16rem; }
+  .mafia-lobby-player-grid .mafia-video-identity .mafia-bot-badge { margin-left: 0; padding: 0.04rem 0.12rem; font-size: 0.34rem; }
+  .mafia-lobby-player-grid .mafia-video-player-state { gap: 0.12rem; }
+  .mafia-lobby-player-grid .mafia-player-state { font-size: 0.4rem; }
+  .mafia-lobby-player-grid .mafia-video-device-state { gap: 0.1rem; font-size: 0.34rem; }
+  .mafia-lobby-player-grid .mafia-video-bot-level { font-size: 0.36rem; }
+  .mafia-lobby-player-grid .mafia-speaking-dot,
+  .mafia-lobby-player-grid .mafia-audio-idle-dot,
+  .mafia-lobby-player-grid .mafia-muted-dot { width: 4px; height: 4px; }
+  .mafia-lobby-player-grid .mafia-video-host-crown { top: 0.22rem; left: 0.22rem; width: 17px; height: 17px; font-size: 0.5rem; }
+  .mafia-lobby-player-grid .mafia-video-player-actions { top: 0.08rem; left: 0.08rem; }
+  .mafia-lobby-player-grid .mafia-fullscreen-button { top: 0.2rem; right: 0.2rem; width: 22px; height: 22px; padding: 0; font-size: 0.62rem; }
+  .mafia-lobby-player-grid .mafia-video-tile--empty { gap: 0.3rem; }
+  .mafia-lobby-player-grid .mafia-video-tile--empty > span { width: 30px; height: 30px; font-size: 1rem; }
+  .mafia-lobby-player-grid .mafia-video-tile--empty > strong { font-size: 0.52rem; }
   .mafia-announcement-panel,
   .mafia-execution-panel { min-height: 58dvh; }
   .mafia-results-header { min-height: 28dvh; padding: 2rem 0 1rem; }
