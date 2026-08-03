@@ -25,7 +25,7 @@ export function ParticipantTile({ player, stream, local = false, outputDeviceId 
 
   return (
     <article className={`mafia-video-tile ${dead ? "mafia-video-tile--dead" : ""}`}>
-      <video ref={videoRef} autoPlay playsInline muted={local} className={hasLiveVideo ? "" : "mafia-media-audio-only"} />
+      <video ref={videoRef} autoPlay playsInline muted={local} className={`${hasLiveVideo ? "" : "mafia-media-audio-only"} ${local ? "mafia-video-local" : ""}`.trim()} />
       {!hasLiveVideo ? <div className="mafia-video-placeholder"><Avatar name={player.display_name} url={player.avatar_url} size="large" /></div> : null}
       {player.is_host ? <span className="mafia-video-host-crown" title="Ведущий">♛</span> : null}
       {actions ? <div className="mafia-video-player-actions" onClick={(event) => event.stopPropagation()}>{actions}</div> : null}

@@ -101,6 +101,7 @@ test("shows lobby players as a four-column video grid with overlay details", asy
           <section class="mafia-lobby-main">
             <section class="mafia-video-grid mafia-lobby-player-grid">
               <article class="mafia-video-tile">
+                <video class="mafia-video-local"></video>
                 <div class="mafia-video-placeholder"><div class="mafia-avatar mafia-avatar--large">Р</div></div>
                 <span class="mafia-video-host-crown">♛</span>
                 <button class="mafia-fullscreen-button">⛶</button>
@@ -124,6 +125,7 @@ test("shows lobby players as a four-column video grid with overlay details", asy
     const grid = document.querySelector<HTMLElement>(".mafia-lobby-player-grid")!;
     const tile = document.querySelector<HTMLElement>(".mafia-video-tile")!;
     const label = document.querySelector<HTMLElement>(".mafia-video-label")!;
+    const localVideo = document.querySelector<HTMLElement>(".mafia-video-local")!;
     const tileRect = tile.getBoundingClientRect();
     const labelRect = label.getBoundingClientRect();
     return {
@@ -131,6 +133,7 @@ test("shows lobby players as a four-column video grid with overlay details", asy
       tiles: grid.children.length,
       labelInsideTile: labelRect.left >= tileRect.left && labelRect.right <= tileRect.right && labelRect.bottom <= tileRect.bottom,
       pageOverflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      localVideoTransform: getComputedStyle(localVideo).transform,
     };
   });
 
@@ -138,6 +141,7 @@ test("shows lobby players as a four-column video grid with overlay details", asy
   expect(geometry.tiles).toBe(8);
   expect(geometry.labelInsideTile).toBe(true);
   expect(geometry.pageOverflows).toBe(false);
+  expect(geometry.localVideoTransform).toMatch(/^matrix\(-1, 0, 0, 1,/);
   await expect(page.locator(".mafia-video-label")).toContainText("роза · вы");
   await expect(page.locator(".mafia-video-label")).toContainText("● Мик");
   await expect(page.locator(".mafia-video-label")).toContainText("● Кам");

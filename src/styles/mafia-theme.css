@@ -376,6 +376,7 @@
 .mafia-lobby-player-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .mafia-video-tile { position: relative; min-height: 148px; overflow: hidden; border: 1px solid var(--mafia-line); border-radius: 9px; background: #090b0c; }
 .mafia-video-tile video { width: 100%; height: 100%; min-height: 148px; object-fit: cover; }
+.mafia-video-tile video.mafia-video-local { transform: scaleX(-1); }
 .mafia-video-placeholder { display: grid; width: 100%; min-height: 148px; place-items: center; background: radial-gradient(circle, #282c2d, #0a0c0d 70%); }
 .mafia-video-tile--empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.55rem; border-style: dashed; color: var(--mafia-muted); }
 .mafia-video-tile--empty > span { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--mafia-line); border-radius: 50%; font-size: 1.35rem; }
