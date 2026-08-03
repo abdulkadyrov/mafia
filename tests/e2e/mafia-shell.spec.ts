@@ -31,6 +31,22 @@ test("publishes a valid Mafia PWA manifest and service worker", async ({ request
   expect(await workerResponse.text()).toContain("isPrivateRequest");
 });
 
+test("creates receive-ready WebRTC offers before camera permission is granted", async ({ page }) => {
+  await page.goto("./");
+  await expect(page.locator(".mafia-wordmark")).toContainText("MAFIA");
+  const sdp = await page.evaluate(async () => {
+    const peer = new RTCPeerConnection();
+    peer.addTransceiver("audio", { direction: "recvonly" });
+    peer.addTransceiver("video", { direction: "recvonly" });
+    const offer = await peer.createOffer();
+    peer.close();
+    return offer.sdp ?? "";
+  });
+
+  expect(sdp).toContain("m=audio");
+  expect(sdp).toContain("m=video");
+});
+
 test("keeps the application shell available offline", async ({ page, context }) => {
   await page.goto("./");
   await expect.poll(async () => {

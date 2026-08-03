@@ -34,11 +34,16 @@ export function useVideoRoom(options: {
   const cameraDeviceIdRef = React.useRef("");
   const microphoneDeviceIdRef = React.useRef("");
   const pendingIceRef = React.useRef(new Map<string, RTCIceCandidateInit[]>());
+  const pendingNegotiationRef = React.useRef(new Set<string>());
   const processedSignalIdsRef = React.useRef(new Set<number>());
   const signalQueueRef = React.useRef<Promise<void>>(Promise.resolve());
 
   const createAndSendOffer = React.useCallback(async (remoteUserId: string, peer: RTCPeerConnection, iceRestart = false) => {
-    if (peer.signalingState !== "stable") return;
+    if (peer.signalingState !== "stable") {
+      pendingNegotiationRef.current.add(remoteUserId);
+      return;
+    }
+    pendingNegotiationRef.current.delete(remoteUserId);
     const offer = await peer.createOffer({ iceRestart });
     await peer.setLocalDescription(offer);
     await waitForIceGatheringComplete(peer);
@@ -50,6 +55,7 @@ export function useVideoRoom(options: {
     if (peer) closePeer(peer);
     peersRef.current.delete(remoteUserId);
     streamsRef.current.delete(remoteUserId);
+    pendingNegotiationRef.current.delete(remoteUserId);
     setParticipants((current) => current.filter((participant) => participant.userId !== remoteUserId));
   }, []);
 
@@ -68,6 +74,7 @@ export function useVideoRoom(options: {
     const roomId = roomIdRef.current!;
     const userId = userIdRef.current!;
     const peer = createPeerConnection({
+      localStream: localStreamRef.current,
       onIceCandidate: (candidate) => {
         void sendVideoSignal(roomId, userId, remoteUserId, "ice", candidate).catch(() => setError("Ошибка сигналинга"));
       },
@@ -88,7 +95,6 @@ export function useVideoRoom(options: {
         }
       },
     });
-    syncLocalTracks(peer, localStreamRef.current);
     peersRef.current.set(remoteUserId, peer);
     setParticipants((current) => upsertParticipant(current, remoteUserId, { connectionState: peer.connectionState }));
     if (shouldOffer) {
@@ -135,9 +141,15 @@ export function useVideoRoom(options: {
         await peer.setLocalDescription(answer);
         await waitForIceGatheringComplete(peer);
         await sendVideoSignal(signal.room_id, userIdRef.current!, signal.sender_user_id, "answer", peer.localDescription ?? answer);
+        if (pendingNegotiationRef.current.has(signal.sender_user_id)) {
+          await createAndSendOffer(signal.sender_user_id, peer);
+        }
       } else if (signal.signal_type === "answer") {
         await peer.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
         await flushPendingIce(peer, signal.sender_user_id, pendingIceRef.current);
+        if (pendingNegotiationRef.current.has(signal.sender_user_id)) {
+          await createAndSendOffer(signal.sender_user_id, peer);
+        }
       } else if (signal.signal_type === "ice") {
         if (peer.remoteDescription) await peer.addIceCandidate(signal.payload as RTCIceCandidateInit);
         else pendingIceRef.current.set(signal.sender_user_id, [...(pendingIceRef.current.get(signal.sender_user_id) ?? []), signal.payload as RTCIceCandidateInit]);
@@ -231,6 +243,7 @@ export function useVideoRoom(options: {
       peersRef.current.clear();
       streamsRef.current.clear();
       pendingIceRef.current.clear();
+      pendingNegotiationRef.current.clear();
       processedSignalIdsRef.current.clear();
       signalQueueRef.current = Promise.resolve();
       stopMediaStream(localStreamRef.current);

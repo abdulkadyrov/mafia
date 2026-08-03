@@ -14,11 +14,13 @@ export function createPeerConnection(input: {
   onTrack: (stream: MediaStream) => void;
   onStateChange: (state: RTCPeerConnectionState) => void;
   onNegotiationNeeded: () => void;
+  localStream?: MediaStream | null;
 }): RTCPeerConnection {
   const peer = new RTCPeerConnection({
     iceServers: defaultIceServers,
     iceCandidatePoolSize: 4,
   });
+  addMediaTransceivers(peer, input.localStream ?? null);
   peer.onicecandidate = (event) => {
     if (event.candidate) input.onIceCandidate(event.candidate.toJSON());
   };
@@ -48,18 +50,22 @@ export async function waitForIceGatheringComplete(peer: RTCPeerConnection, timeo
 }
 
 export function syncLocalTracks(peer: RTCPeerConnection, stream: MediaStream | null): void {
-  const currentSenders = peer.getSenders();
-  const desiredTracks = stream?.getTracks() ?? [];
-  for (const sender of currentSenders) {
-    if (sender.track && !desiredTracks.some((track) => track.id === sender.track?.id)) {
-      void sender.replaceTrack(null);
-    }
+  const desiredTracks = new Map((stream?.getTracks() ?? []).map((track) => [track.kind, track]));
+  for (const transceiver of peer.getTransceivers()) {
+    const kind = transceiver.receiver.track.kind;
+    if (kind !== "audio" && kind !== "video") continue;
+    const track = desiredTracks.get(kind) ?? null;
+    const nextDirection: RTCRtpTransceiverDirection = track ? "sendrecv" : "recvonly";
+    if (transceiver.direction !== nextDirection) transceiver.direction = nextDirection;
+    if (transceiver.sender.track?.id !== track?.id) void transceiver.sender.replaceTrack(track);
   }
-  for (const track of desiredTracks) {
-    const sameKind = currentSenders.find((sender) => sender.track?.kind === track.kind)
-      ?? peer.getTransceivers().find((transceiver) => transceiver.receiver.track.kind === track.kind)?.sender;
-    if (sameKind) void sameKind.replaceTrack(track);
-    else peer.addTrack(track, stream!);
+}
+
+function addMediaTransceivers(peer: RTCPeerConnection, stream: MediaStream | null): void {
+  for (const kind of ["audio", "video"] as const) {
+    const track = stream?.getTracks().find((candidate) => candidate.kind === kind);
+    if (track && stream) peer.addTransceiver(track, { direction: "sendrecv", streams: [stream] });
+    else peer.addTransceiver(kind, { direction: "recvonly" });
   }
 }
 
