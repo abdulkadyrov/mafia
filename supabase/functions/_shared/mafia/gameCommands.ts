@@ -5,6 +5,7 @@ import { getWinner } from "../../../../src/core/game/winCondition.ts";
 import type { DomainGamePlayer, DomainNightAction, GamePhase, NightActionType } from "../../../../src/core/game/gameTypes.ts";
 import { assignRoles, buildRoleDeck } from "../../../../src/core/roles/roleAssignment.ts";
 import { getRoleDefinition } from "../../../../src/core/roles/roleRegistry.ts";
+import type { RoleCounts } from "../../../../src/core/roles/roleTypes.ts";
 import type { CommandContext, GameActionRow, GamePlayerRow, GameRow, RoomPlayerRow, RoomRow } from "./types.ts";
 import {
   addEvent,
@@ -21,6 +22,7 @@ import {
   requireRoom,
 } from "./helpers.ts";
 import { getSnapshot } from "./snapshot.ts";
+import { runBotsForPhase } from "./botRunner.ts";
 
 export async function startGame(context: CommandContext, roomId: string) {
   const room = await requireHost(context, roomId);
@@ -36,7 +38,7 @@ export async function startGame(context: CommandContext, roomId: string) {
   if (members.length < 6) throw new CommandError("Для production-партии требуется минимум 6 игроков", 409, "not_enough_players");
   const unready = members.filter((member) => !member.is_host && !member.is_ready);
   if (unready.length > 0) throw new CommandError(`Не готовы: ${unready.map((member) => member.display_name).join(", ")}`, 409, "players_not_ready");
-  if (room.camera_required && members.some((member) => !member.camera_enabled)) {
+  if (room.camera_required && members.some((member) => !member.is_bot && !member.camera_enabled)) {
     throw new CommandError("В комнате обязательна камера: не все игроки её включили", 409, "camera_required");
   }
   const hostMember = members.find((member) => member.user_id === room.host_user_id);
@@ -65,8 +67,11 @@ export async function startGame(context: CommandContext, roomId: string) {
   const game = gameData as GameRow;
 
   try {
+    const playerAssignments = room.settings.roleAssignmentMode === "manual"
+      ? await buildManualAssignments(context, activeMembers, roleCounts, room)
+      : assignRoles(activeMembers.map((member) => member.id), roleCounts, randomUnit);
     const assignments = [
-      ...assignRoles(activeMembers.map((member) => member.id), roleCounts, randomUnit),
+      ...playerAssignments,
       { playerId: hostMember.id, role: "host" as const, team: "host" as const },
     ];
     const memberById = new Map(members.map((member) => [member.id, member]));
@@ -80,6 +85,9 @@ export async function startGame(context: CommandContext, roomId: string) {
         team: assignment.team,
         life_status: "alive",
         is_host: member.user_id === room.host_user_id,
+        is_bot: member.is_bot,
+        bot_difficulty: member.bot_difficulty,
+        role_acknowledged_at: null,
       };
     });
     const { error: insertPlayersError } = await context.admin.from("mafia_game_players").insert(rows);
@@ -107,11 +115,14 @@ export async function startGame(context: CommandContext, roomId: string) {
       event_type: "game_started",
       visibility: "public",
       target_user_id: null,
-      payload: { gameNumber },
+      payload: { gameNumber, roleAssignmentMode: room.settings.roleAssignmentMode ?? "random" },
     });
     await addSystemMessage(context.admin, room, game, "Партия началась. Роли распределены.");
+    const createdPlayers = await getGamePlayers(context.admin, game.id);
+    await runBotsForPhase(context, room, game, createdPlayers, "role_reveal", 1);
   } catch (error) {
     await context.admin.from("mafia_games").delete().eq("id", game.id);
+    if (error instanceof CommandError) throw error;
     console.error("start game failed", error instanceof Error ? error.message : "unknown");
     throw new CommandError("Не удалось безопасно распределить роли", 500, "role_assignment_failed");
   }
@@ -315,6 +326,8 @@ async function movePhase(
     payload: { from: game.phase, to: next },
   });
   await addSystemMessage(context.admin, room, game, phaseAnnouncement(next));
+  const players = await getGamePlayers(context.admin, game.id);
+  await runBotsForPhase(context, room, game, players, next, roundNumber);
   return getSnapshot(context, room.id);
 }
 
@@ -511,12 +524,39 @@ function validateNightAction(
 function toDomainPlayer(player: GamePlayerRow): DomainGamePlayer {
   return {
     id: player.id,
-    userId: player.user_id,
+    userId: player.user_id ?? `bot:${player.room_player_id}`,
     role: player.role,
     team: player.team,
     lifeStatus: player.life_status,
     isHost: player.is_host,
   };
+}
+
+async function buildManualAssignments(
+  context: CommandContext,
+  activeMembers: RoomPlayerRow[],
+  roleCounts: RoleCounts,
+  room: RoomRow
+) {
+  const { data, error } = await context.admin
+    .from("mafia_manual_role_assignments")
+    .select("room_player_id, role")
+    .eq("room_id", room.id);
+  if (error) throw new CommandError("Не удалось загрузить ручные роли", 500, "manual_roles_load_failed");
+  const manualRoles = Object.fromEntries((data ?? []).map((assignment) => [String(assignment.room_player_id), assignment.role]));
+  const expectedDeck = buildRoleDeck(roleCounts, activeMembers.length).sort();
+  const selectedRoles = activeMembers.map((member) => manualRoles[member.id]);
+  if (selectedRoles.some((role) => typeof role !== "string")) {
+    throw new CommandError("Назначьте роль каждому игроку и боту", 409, "manual_roles_incomplete");
+  }
+  const actualDeck = [...selectedRoles as string[]].sort();
+  if (actualDeck.length !== expectedDeck.length || actualDeck.some((role, index) => role !== expectedDeck[index])) {
+    throw new CommandError("Ручные роли должны совпадать с количеством ролей в настройках", 409, "manual_roles_mismatch");
+  }
+  return activeMembers.map((member) => {
+    const role = manualRoles[member.id] as Exclude<GamePlayerRow["role"], "host">;
+    return { playerId: member.id, role, team: getRoleDefinition(role).team };
+  });
 }
 
 function phaseAnnouncement(phase: GamePhase): string {

@@ -3,6 +3,7 @@ import { getSupabaseClient } from "../supabase/client";
 import type { ChatChannel } from "../chat/chatTypes";
 import type { NightActionType } from "./gameTypes";
 import type { MafiaRoomSettings, MafiaSnapshot } from "../room/mafiaRoomTypes";
+import type { MafiaRole } from "../roles/roleTypes";
 
 type CommandEnvelope<T> = { data: T; replayed?: boolean };
 
@@ -59,6 +60,12 @@ export const mafiaCommands = {
     invokeMafiaCommand<MafiaSnapshot>({ type: "kick_player", roomId, targetUserId }),
   hostMute: (roomId: string, targetUserId: string, muted: boolean) =>
     invokeMafiaCommand<MafiaSnapshot>({ type: "set_host_mute", roomId, targetUserId, muted }),
+  addBots: (roomId: string, count: number) =>
+    invokeMafiaCommand<MafiaSnapshot>({ type: "add_bots", roomId, count }),
+  removeBot: (roomId: string, roomPlayerId: string) =>
+    invokeMafiaCommand<MafiaSnapshot>({ type: "remove_bot", roomId, roomPlayerId }),
+  configureRoles: (roomId: string, mode: "random" | "manual", assignments: Record<string, MafiaRole>) =>
+    invokeMafiaCommand<MafiaSnapshot>({ type: "configure_roles", roomId, mode, assignments }),
   cancelRoom: (roomId: string) => invokeMafiaCommand<{ cancelled: true }>({ type: "cancel_room", roomId }),
   leave: (roomId: string) => invokeMafiaCommand<{ left: true }>({ type: "leave_room", roomId }),
 };

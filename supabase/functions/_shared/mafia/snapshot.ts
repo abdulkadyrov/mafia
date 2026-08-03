@@ -18,13 +18,23 @@ export async function getSnapshot(context: CommandContext, roomId: string) {
   const revealAll = game?.status === "finished";
   const mafiaViewer = selfGamePlayer?.team === "mafia" && selfGamePlayer.life_status === "alive";
   const gamePlayerByRoomPlayer = new Map(gamePlayers.map((player) => [player.room_player_id, player]));
+  let manualRoles: Record<string, string> | undefined;
+  if (isHost && room.status === "lobby" && room.settings.roleAssignmentMode === "manual") {
+    const { data: assignmentData, error: assignmentError } = await context.admin
+      .from("mafia_manual_role_assignments")
+      .select("room_player_id, role")
+      .eq("room_id", roomId);
+    if (assignmentError) throw new CommandError("Не удалось загрузить ручные роли", 500, "manual_roles_load_failed");
+    manualRoles = Object.fromEntries((assignmentData ?? []).map((assignment) => [String(assignment.room_player_id), String(assignment.role)]));
+  }
   const players = roomPlayers.map((player) => {
     const secret = gamePlayerByRoomPlayer.get(player.id);
-    const knownRole = secret && (revealAll || secret.user_id === context.user.id || (mafiaViewer && secret.team === "mafia"))
+    const knownRole = secret && (revealAll || isHost || secret.user_id === context.user.id || (mafiaViewer && secret.team === "mafia"))
       ? secret.role
       : null;
     return {
       ...player,
+      user_id: player.user_id ?? `bot:${player.id}`,
       gamePlayerId: secret?.id ?? null,
       role: knownRole,
       team: knownRole ? secret?.team ?? null : null,
@@ -71,7 +81,13 @@ export async function getSnapshot(context: CommandContext, roomId: string) {
   }
 
   return {
-    room,
+    room: isHost ? {
+      ...room,
+      settings: { ...room.settings, ...(manualRoles ? { manualRoles } : {}) },
+    } : {
+      ...room,
+      settings: { ...room.settings, manualRoles: undefined },
+    },
     game,
     players,
     self: {

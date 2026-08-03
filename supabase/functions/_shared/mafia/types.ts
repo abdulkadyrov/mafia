@@ -25,6 +25,7 @@ export type RoomSettingsInput = {
   discussionSeconds?: number;
   votingSeconds?: number;
   roles?: RoleCounts;
+  roleAssignmentMode?: "random" | "manual";
   allowVoteChange?: boolean;
   tieRule?: "no_execution" | "revote";
 };
@@ -49,6 +50,15 @@ export type MafiaCommand =
   | { commandId: string; type: "transfer_host"; roomId: string; targetUserId: string }
   | { commandId: string; type: "kick_player"; roomId: string; targetUserId: string }
   | { commandId: string; type: "set_host_mute"; roomId: string; targetUserId: string; muted: boolean }
+  | { commandId: string; type: "add_bots"; roomId: string; count: number }
+  | { commandId: string; type: "remove_bot"; roomId: string; roomPlayerId: string }
+  | {
+      commandId: string;
+      type: "configure_roles";
+      roomId: string;
+      mode: "random" | "manual";
+      assignments: Record<string, MafiaRole>;
+    }
   | { commandId: string; type: "cancel_room"; roomId: string }
   | { commandId: string; type: "start_game"; roomId: string }
   | { commandId: string; type: "acknowledge_role"; roomId: string }
@@ -101,7 +111,7 @@ export type RoomRow = {
 export type RoomPlayerRow = {
   id: string;
   room_id: string;
-  user_id: string;
+  user_id: string | null;
   display_name: string;
   avatar_url: string | null;
   is_host: boolean;
@@ -113,6 +123,8 @@ export type RoomPlayerRow = {
   connection_quality: "unknown" | "excellent" | "good" | "poor" | "offline";
   last_seen_at: string;
   joined_at: string;
+  is_bot: boolean;
+  bot_difficulty: "medium" | null;
 };
 
 export type GameRow = {
@@ -133,7 +145,7 @@ export type GamePlayerRow = {
   id: string;
   game_id: string;
   room_player_id: string;
-  user_id: string;
+  user_id: string | null;
   role: MafiaRole;
   team: "mafia" | "city" | "neutral" | "host";
   life_status: "alive" | "dead" | "disconnected";
@@ -144,6 +156,8 @@ export type GamePlayerRow = {
   death_reason: string | null;
   score: number;
   created_at: string;
+  is_bot: boolean;
+  bot_difficulty: "medium" | null;
 };
 
 export type GameActionRow = {

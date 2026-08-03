@@ -65,6 +65,7 @@ export function normalizeSettings(input: RoomSettingsInput, current?: RoomRow): 
       discussionSeconds: clampInteger(input.discussionSeconds, Number(prior.discussionSeconds ?? 180), 30, 900),
       votingSeconds: clampInteger(input.votingSeconds, Number(prior.votingSeconds ?? 45), 15, 180),
       roles: roles as unknown as Json,
+      roleAssignmentMode: input.roleAssignmentMode ?? prior.roleAssignmentMode ?? "random",
       allowVoteChange: input.allowVoteChange ?? prior.allowVoteChange ?? false,
       tieRule: input.tieRule ?? prior.tieRule ?? "no_execution",
     },

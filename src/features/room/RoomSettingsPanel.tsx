@@ -59,6 +59,7 @@ export function RoomSettingsPanel({ snapshot, open, onClose, onSaved, onCancel }
             <Toggle label="Наблюдение после смерти" value={settings.deadCanObserve} onChange={(value) => setSettings({ ...settings, deadCanObserve: value })} />
             <Toggle label="Погибшие читают чат живых" value={settings.deadCanReadAliveChat} onChange={(value) => setSettings({ ...settings, deadCanReadAliveChat: value })} />
             <Toggle label="Разрешить смену голоса" value={settings.allowVoteChange} onChange={(value) => setSettings({ ...settings, allowVoteChange: value })} />
+            <Toggle label="Роли назначает ведущий" value={settings.roleAssignmentMode === "manual"} onChange={(value) => setSettings({ ...settings, roleAssignmentMode: value ? "manual" : "random" })} />
           </div>
           <label className="mafia-field"><span>Правило ничьей</span><select value={settings.tieRule} onChange={(event) => setSettings({ ...settings, tieRule: event.target.value as MafiaRoomSettings["tieRule"] })}><option value="no_execution">Никого не исключать</option><option value="revote">Повторить голосование</option></select></label>
         </div>
@@ -106,6 +107,7 @@ function fromSnapshot(snapshot: MafiaSnapshot): MafiaRoomSettings {
     discussionSeconds: room.settings.discussionSeconds,
     votingSeconds: room.settings.votingSeconds,
     roles: room.settings.roles,
+    roleAssignmentMode: room.settings.roleAssignmentMode ?? "random",
     allowVoteChange: room.settings.allowVoteChange,
     tieRule: room.settings.tieRule,
   };

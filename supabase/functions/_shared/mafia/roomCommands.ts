@@ -1,7 +1,9 @@
+import type { MafiaRole } from "../../../../src/core/roles/roleTypes.ts";
 import type { CommandContext, RoomPlayerRow, RoomSettingsInput } from "./types.ts";
 import {
   addEvent,
   addSystemMessage,
+  assertUuid,
   CommandError,
   cleanName,
   getCurrentGame,
@@ -14,6 +16,13 @@ import {
 import { getSnapshot } from "./snapshot.ts";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const BOT_NAMES = [
+  "Марко", "Сильва", "Вито", "Нора", "Роза", "Лео", "Марта", "Энцо",
+  "Луна", "Тони", "Софи", "Дино", "Клара", "Рико", "Белла", "Нико",
+];
+const ASSIGNABLE_ROLES = new Set<MafiaRole>([
+  "mafia", "don", "doctor", "commissioner", "civilian", "maniac", "mistress", "bodyguard",
+]);
 
 export async function createRoom(context: CommandContext, settingsInput: RoomSettingsInput) {
   const { data: profile, error: profileError } = await context.admin
@@ -156,10 +165,11 @@ export async function leaveRoom(context: CommandContext, roomId: string) {
     await context.admin.from("mafia_room_players").delete().eq("id", member.id);
   }
 
-  if (room.host_user_id === context.user.id && remaining[0]) {
-    await context.admin.from("mafia_rooms").update({ host_user_id: remaining[0].user_id }).eq("id", roomId);
-    await context.admin.from("mafia_room_players").update({ is_host: true, is_ready: true }).eq("id", remaining[0].id);
-  } else if (remaining.length === 0) {
+  const nextHumanHost = remaining.find((candidate) => !candidate.is_bot && candidate.user_id);
+  if (room.host_user_id === context.user.id && nextHumanHost?.user_id) {
+    await context.admin.from("mafia_rooms").update({ host_user_id: nextHumanHost.user_id }).eq("id", roomId);
+    await context.admin.from("mafia_room_players").update({ is_host: true, is_ready: true }).eq("id", nextHumanHost.id);
+  } else if (remaining.length === 0 || (room.host_user_id === context.user.id && !nextHumanHost)) {
     await context.admin.from("mafia_rooms").update({ status: "cancelled", join_locked: true }).eq("id", roomId);
   }
   await addSystemMessage(context.admin, room, null, `${member.display_name} покинул комнату.`);
@@ -260,6 +270,123 @@ export async function setHostMute(context: CommandContext, roomId: string, targe
   return getSnapshot(context, roomId);
 }
 
+export async function addBots(context: CommandContext, roomId: string, requestedCount: number) {
+  const room = await requireHost(context, roomId);
+  if (room.status !== "lobby") throw new CommandError("Ботов можно добавлять только в лобби", 409, "not_lobby");
+  if (!Number.isInteger(requestedCount) || requestedCount < 1) throw new CommandError("Укажите количество ботов");
+  const { data, error } = await context.admin
+    .from("mafia_room_players")
+    .select("id, display_name")
+    .eq("room_id", roomId);
+  if (error) throw new CommandError("Не удалось загрузить игроков", 500, "players_load_failed");
+  const members = data ?? [];
+  const availableSlots = room.max_players - members.length;
+  const count = Math.min(requestedCount, availableSlots);
+  if (count < 1) throw new CommandError("В комнате нет свободных мест", 409, "room_full");
+  const usedNames = new Set(members.map((member) => String(member.display_name).toLocaleLowerCase("ru")));
+  const rows = Array.from({ length: count }, (_, index) => {
+    const displayName = nextBotName(usedNames, members.length + index);
+    usedNames.add(displayName.toLocaleLowerCase("ru"));
+    return {
+      room_id: roomId,
+      user_id: null,
+      display_name: displayName,
+      avatar_url: null,
+      is_host: false,
+      is_ready: true,
+      is_bot: true,
+      bot_difficulty: "medium",
+      connection_quality: "good",
+      last_seen_at: new Date().toISOString(),
+    };
+  });
+  const { error: insertError } = await context.admin.from("mafia_room_players").insert(rows);
+  if (insertError) throw new CommandError("Не удалось добавить ботов", 500, "bots_add_failed");
+  await addEvent(context.admin, {
+    room_id: roomId,
+    game_id: null,
+    round_number: 0,
+    phase: "lobby",
+    event_type: "bots_added",
+    visibility: "public",
+    target_user_id: null,
+    payload: { count },
+  });
+  await addSystemMessage(context.admin, room, null, `Ведущий добавил ботов: ${count}.`);
+  return getSnapshot(context, roomId);
+}
+
+export async function removeBot(context: CommandContext, roomId: string, roomPlayerId: string) {
+  const room = await requireHost(context, roomId);
+  if (room.status !== "lobby") throw new CommandError("Ботов можно удалять только в лобби", 409, "not_lobby");
+  assertUuid(roomPlayerId, "roomPlayerId");
+  const { data: bot, error } = await context.admin
+    .from("mafia_room_players")
+    .select("id, display_name, is_bot")
+    .eq("room_id", roomId)
+    .eq("id", roomPlayerId)
+    .maybeSingle();
+  if (error || !bot || bot.is_bot !== true) throw new CommandError("Бот не найден", 404, "bot_not_found");
+  const { error: deleteError } = await context.admin.from("mafia_room_players").delete().eq("id", bot.id);
+  if (deleteError) throw new CommandError("Не удалось удалить бота", 500, "bot_remove_failed");
+  await addSystemMessage(context.admin, room, null, `${bot.display_name} удалён из тестовой партии.`);
+  return getSnapshot(context, roomId);
+}
+
+export async function configureRoles(
+  context: CommandContext,
+  roomId: string,
+  mode: "random" | "manual",
+  assignments: Record<string, MafiaRole>
+) {
+  const room = await requireHost(context, roomId);
+  if (room.status !== "lobby") throw new CommandError("Роли назначаются только в лобби", 409, "not_lobby");
+  if (mode !== "random" && mode !== "manual") throw new CommandError("Некорректный режим назначения ролей");
+  const { data, error } = await context.admin
+    .from("mafia_room_players")
+    .select("id, is_host")
+    .eq("room_id", roomId)
+    .neq("life_status", "disconnected");
+  if (error) throw new CommandError("Не удалось загрузить игроков", 500, "players_load_failed");
+  const assignableIds = new Set((data ?? []).filter((player) => !player.is_host).map((player) => String(player.id)));
+  const cleanAssignments: Record<string, MafiaRole> = {};
+  for (const [playerId, role] of Object.entries(assignments ?? {})) {
+    if (!assignableIds.has(playerId)) continue;
+    if (!ASSIGNABLE_ROLES.has(role)) throw new CommandError("Выбрана недопустимая роль");
+    cleanAssignments[playerId] = role;
+  }
+  const { error: clearError } = await context.admin.from("mafia_manual_role_assignments").delete().eq("room_id", roomId);
+  if (clearError) throw new CommandError("Не удалось очистить прежние роли", 500, "role_configuration_failed");
+  if (mode === "manual" && Object.keys(cleanAssignments).length > 0) {
+    const { error: insertError } = await context.admin.from("mafia_manual_role_assignments").insert(
+      Object.entries(cleanAssignments).map(([roomPlayerId, role]) => ({
+        room_id: roomId,
+        room_player_id: roomPlayerId,
+        role,
+      }))
+    );
+    if (insertError) throw new CommandError("Не удалось сохранить ручные роли", 500, "role_configuration_failed");
+  }
+  const { error: updateError } = await context.admin.from("mafia_rooms").update({
+    settings: {
+      ...room.settings,
+      roleAssignmentMode: mode,
+    },
+  }).eq("id", roomId);
+  if (updateError) throw new CommandError("Не удалось сохранить назначение ролей", 500, "role_configuration_failed");
+  await addEvent(context.admin, {
+    room_id: roomId,
+    game_id: null,
+    round_number: 0,
+    phase: "lobby",
+    event_type: "role_assignment_configured",
+    visibility: "host",
+    target_user_id: null,
+    payload: { mode, assignedCount: Object.keys(cleanAssignments).length },
+  });
+  return getSnapshot(context, roomId);
+}
+
 export async function cancelRoom(context: CommandContext, roomId: string) {
   const room = await requireHost(context, roomId);
   const game = await getCurrentGame(context.admin, roomId);
@@ -291,4 +418,12 @@ function createCode(): string {
   const bytes = new Uint8Array(6);
   crypto.getRandomValues(bytes);
   return [...bytes].map((value) => CODE_ALPHABET[value % CODE_ALPHABET.length]).join("");
+}
+
+function nextBotName(usedNames: Set<string>, seed: number): string {
+  for (let offset = 0; offset < BOT_NAMES.length; offset += 1) {
+    const candidate = BOT_NAMES[(seed + offset) % BOT_NAMES.length];
+    if (!usedNames.has(candidate.toLocaleLowerCase("ru"))) return candidate;
+  }
+  return `Бот ${seed + 1}`;
 }

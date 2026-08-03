@@ -19,6 +19,7 @@ const settings: MafiaRoomSettings = {
   roles: { mafia: 2, doctor: 1, commissioner: 1, civilian: 2 },
   allowVoteChange: false,
   tieRule: "no_execution",
+  roleAssignmentMode: "random",
 };
 
 describe("room role settings", () => {

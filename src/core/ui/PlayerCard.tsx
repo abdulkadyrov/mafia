@@ -26,6 +26,7 @@ export function PlayerCard({
         dead ? "mafia-player-card--dead" : "",
         disconnected ? "mafia-player-card--offline" : "",
         compact ? "mafia-player-card--compact" : "",
+        player.is_bot ? "mafia-player-card--bot" : "",
       ].filter(Boolean).join(" ")}
       onClick={disabled ? undefined : onClick}
       role={onClick ? "button" : undefined}
@@ -39,15 +40,17 @@ export function PlayerCard({
         {dead ? <span className="mafia-death-mark" title="Погиб">†</span> : null}
       </div>
       <div className="mafia-player-meta">
-        <strong>{player.display_name}</strong>
+        <strong>{player.display_name}{player.is_bot ? <span className="mafia-bot-badge">BOT</span> : null}</strong>
         <span className={`mafia-player-state mafia-player-state--${dead ? "dead" : disconnected ? "offline" : player.is_ready ? "ready" : "waiting"}`}>
           {dead ? "Погиб" : disconnected ? "Нет связи" : player.is_ready ? "Готов" : "Не готов"}
         </span>
-        <div className="mafia-device-badges" aria-label="Состояние устройств">
-          <span className={player.microphone_enabled && !player.microphone_blocked ? "on" : "off"}>{player.microphone_enabled ? "● Мик" : "○ Мик"}</span>
-          <span className={player.camera_enabled ? "on" : "off"}>{player.camera_enabled ? "● Кам" : "○ Кам"}</span>
-          <span className={`quality quality--${player.connection_quality}`}>◉</span>
-        </div>
+        {player.is_bot ? <div className="mafia-device-badges" aria-label="Сложность бота"><span className="on">◆ Средний ум</span></div> : (
+          <div className="mafia-device-badges" aria-label="Состояние устройств">
+            <span className={player.microphone_enabled && !player.microphone_blocked ? "on" : "off"}>{player.microphone_enabled ? "● Мик" : "○ Мик"}</span>
+            <span className={player.camera_enabled ? "on" : "off"}>{player.camera_enabled ? "● Кам" : "○ Кам"}</span>
+            <span className={`quality quality--${player.connection_quality}`}>◉</span>
+          </div>
+        )}
       </div>
       {actions ? <div className="mafia-player-actions" onClick={(event) => event.stopPropagation()}>{actions}</div> : null}
     </article>

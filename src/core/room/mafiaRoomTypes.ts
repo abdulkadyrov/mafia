@@ -17,6 +17,7 @@ export type MafiaRoomSettings = {
   discussionSeconds: number;
   votingSeconds: number;
   roles: RoleCounts;
+  roleAssignmentMode: "random" | "manual";
   allowVoteChange: boolean;
   tieRule: "no_execution" | "revote";
 };
@@ -46,6 +47,8 @@ export type MafiaRoomRecord = {
     discussionSeconds: number;
     votingSeconds: number;
     roles: RoleCounts;
+    roleAssignmentMode: "random" | "manual";
+    manualRoles?: Record<string, MafiaRole>;
     allowVoteChange: boolean;
     tieRule: "no_execution" | "revote";
     doctorSelfHealsLimit?: number;
@@ -90,6 +93,8 @@ export type MafiaPlayerView = {
   team: MafiaTeam | null;
   deathReason: string | null;
   score?: number;
+  is_bot: boolean;
+  bot_difficulty: "medium" | null;
 };
 
 export type MafiaEvent = {
