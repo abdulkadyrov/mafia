@@ -15,6 +15,12 @@ export async function getSnapshot(context: CommandContext, roomId: string) {
   const gamePlayers = game ? await getGamePlayers(context.admin, game.id) : [];
   const selfGamePlayer = gamePlayers.find((player) => player.user_id === context.user.id) ?? null;
   const isHost = room.host_user_id === context.user.id;
+  const hostGamePlayer = gamePlayers.find((player) => player.user_id === room.host_user_id);
+  const hostPlays = typeof room.settings.hostPlays === "boolean"
+    ? room.settings.hostPlays
+    : hostGamePlayer ? hostGamePlayer.team !== "host" : true;
+  const isModerator = isHost && !hostPlays;
+  const publicSettings = { ...room.settings, hostPlays };
   const revealAll = game?.status === "finished";
   const mafiaViewer = selfGamePlayer?.team === "mafia" && selfGamePlayer.life_status === "alive";
   const gamePlayerByRoomPlayer = new Map(gamePlayers.map((player) => [player.room_player_id, player]));
@@ -29,7 +35,7 @@ export async function getSnapshot(context: CommandContext, roomId: string) {
   }
   const players = roomPlayers.map((player) => {
     const secret = gamePlayerByRoomPlayer.get(player.id);
-    const knownRole = secret && (revealAll || isHost || secret.user_id === context.user.id || (mafiaViewer && secret.team === "mafia"))
+    const knownRole = secret && (revealAll || isModerator || secret.user_id === context.user.id || (mafiaViewer && secret.team === "mafia"))
       ? secret.role
       : null;
     return {
@@ -51,7 +57,7 @@ export async function getSnapshot(context: CommandContext, roomId: string) {
     .limit(200);
   if (eventError) throw new CommandError("Не удалось загрузить историю", 500, "events_load_failed");
   const events = ((eventData ?? []) as EventRow[])
-    .filter((event) => canReadEvent(event, context.user.id, isHost, selfGamePlayer, game?.status === "finished"))
+    .filter((event) => canReadEvent(event, context.user.id, isModerator, selfGamePlayer, game?.status === "finished"))
     .reverse();
 
   const { data: messageData, error: messageError } = await context.admin
@@ -83,10 +89,10 @@ export async function getSnapshot(context: CommandContext, roomId: string) {
   return {
     room: isHost ? {
       ...room,
-      settings: { ...room.settings, ...(manualRoles ? { manualRoles } : {}) },
+      settings: { ...publicSettings, ...(manualRoles ? { manualRoles } : {}) },
     } : {
       ...room,
-      settings: { ...room.settings, manualRoles: undefined },
+      settings: { ...publicSettings, manualRoles: undefined },
     },
     game,
     players,

@@ -15,10 +15,11 @@ export function HostTestToolsModal({ open, snapshot, onClose, onSaved }: {
   onSaved: (snapshot: MafiaSnapshot) => void;
 }) {
   const [mode, setMode] = React.useState<"random" | "manual">("random");
+  const [hostPlays, setHostPlays] = React.useState(true);
   const [assignments, setAssignments] = React.useState<Record<string, MafiaRole>>({});
   const [busy, setBusy] = React.useState("");
   const [error, setError] = React.useState("");
-  const players = snapshot.players.filter((player) => !player.is_host && player.life_status !== "disconnected");
+  const players = snapshot.players.filter((player) => player.life_status !== "disconnected" && (!player.is_host || hostPlays));
   const freeSlots = Math.max(0, snapshot.room.max_players - snapshot.players.length);
   const required = requiredRoleCounts(snapshot.room.settings.roles, players.length);
   const assigned = countAssignments(players.map((player) => assignments[player.id]));
@@ -27,8 +28,10 @@ export function HostTestToolsModal({ open, snapshot, onClose, onSaved }: {
   React.useEffect(() => {
     if (!open) return;
     const nextMode = snapshot.room.settings.roleAssignmentMode ?? "random";
+    const nextHostPlays = snapshot.room.settings.hostPlays !== false;
     setMode(nextMode);
-    setAssignments(seedAssignments(snapshot));
+    setHostPlays(nextHostPlays);
+    setAssignments(seedAssignments(snapshot, nextHostPlays));
     setError("");
   }, [open, snapshot]);
 
@@ -59,6 +62,7 @@ export function HostTestToolsModal({ open, snapshot, onClose, onSaved }: {
         </section>
 
         <section className="mafia-host-tools-section">
+          <label className="mafia-toggle"><span><strong>Ведущий играет</strong><small>Администратор получает обычную роль, участвует в ночи и голосовании</small></span><input type="checkbox" checked={hostPlays} onChange={(event) => { const next = event.target.checked; setHostPlays(next); setAssignments(seedAssignments(snapshot, next)); }} /><i /></label>
           <label className="mafia-field"><span>Назначение ролей</span><select value={mode} onChange={(event) => setMode(event.target.value as "random" | "manual")}><option value="random">Случайно</option><option value="manual">Ведущий назначает сам</option></select></label>
           {mode === "manual" ? (
             <>
@@ -71,7 +75,7 @@ export function HostTestToolsModal({ open, snapshot, onClose, onSaved }: {
               <div className="mafia-manual-role-list">
                 {players.map((player) => (
                   <div className="mafia-manual-role-row" key={player.id}>
-                    <div><strong>{player.display_name}</strong>{player.is_bot ? <span className="mafia-bot-badge">BOT · средний</span> : <small>Игрок</small>}</div>
+                    <div><strong>{player.display_name}</strong>{player.is_bot ? <span className="mafia-bot-badge">BOT · средний</span> : player.is_host ? <span className="mafia-host-playing-badge">Ведущий · играет</span> : <small>Игрок</small>}</div>
                     <select aria-label={`Роль для ${player.display_name}`} value={assignments[player.id] ?? ""} onChange={(event) => setAssignments({ ...assignments, [player.id]: event.target.value as MafiaRole })}>
                       <option value="" disabled>Выберите роль</option>
                       {ROLES.map((role) => <option key={role} value={role}>{getRoleDefinition(role).name}</option>)}
@@ -93,7 +97,7 @@ export function HostTestToolsModal({ open, snapshot, onClose, onSaved }: {
         {error ? <div className="mafia-form-error" role="alert">{error}</div> : null}
         <div className="mafia-modal-actions">
           <button className="mafia-secondary-button" onClick={onClose}>Закрыть</button>
-          <button className="mafia-primary-button" disabled={Boolean(busy) || (mode === "manual" && !validManual)} onClick={() => void run("save", () => mafiaCommands.configureRoles(snapshot.room.id, mode, assignments))}>{busy === "save" ? "Сохраняем…" : "Сохранить роли"}</button>
+          <button className="mafia-primary-button" disabled={Boolean(busy) || (mode === "manual" && !validManual)} onClick={() => void run("save", () => mafiaCommands.configureRoles(snapshot.room.id, mode, assignments, hostPlays))}>{busy === "save" ? "Сохраняем…" : "Сохранить роли"}</button>
         </div>
       </section>
     </div>
@@ -120,8 +124,8 @@ function countAssignments(roles: Array<MafiaRole | undefined>): RoleCounts {
   }, {});
 }
 
-function seedAssignments(snapshot: MafiaSnapshot): Record<string, MafiaRole> {
-  const players = snapshot.players.filter((player) => !player.is_host && player.life_status !== "disconnected");
+function seedAssignments(snapshot: MafiaSnapshot, hostPlays: boolean): Record<string, MafiaRole> {
+  const players = snapshot.players.filter((player) => player.life_status !== "disconnected" && (!player.is_host || hostPlays));
   const saved = snapshot.room.settings.manualRoles ?? {};
   const required = requiredRoleCounts(snapshot.room.settings.roles, players.length);
   const available = ROLES.flatMap((role) => Array.from({ length: required[role] ?? 0 }, () => role));

@@ -22,7 +22,7 @@ export type DomainGamePlayer = {
   role: MafiaRole;
   team: MafiaTeam;
   lifeStatus: PlayerLifeStatus;
-  isHost: boolean;
+  isModerator: boolean;
 };
 
 export type NightActionType =

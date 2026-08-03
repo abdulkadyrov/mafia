@@ -1,7 +1,7 @@
 import React from "react";
 import { mafiaCommands } from "../../core/game/gameCommands";
 import type { MafiaRoomSettings, MafiaSnapshot } from "../../core/room/mafiaRoomTypes";
-import { changePlayerLimit, changeRoleCount } from "./roleSettings";
+import { changeHostParticipation, changePlayerLimit, changeRoleCount } from "./roleSettings";
 
 export function RoomSettingsPanel({ snapshot, open, onClose, onSaved, onCancel }: {
   snapshot: MafiaSnapshot;
@@ -60,6 +60,7 @@ export function RoomSettingsPanel({ snapshot, open, onClose, onSaved, onCancel }
             <Toggle label="Погибшие читают чат живых" value={settings.deadCanReadAliveChat} onChange={(value) => setSettings({ ...settings, deadCanReadAliveChat: value })} />
             <Toggle label="Разрешить смену голоса" value={settings.allowVoteChange} onChange={(value) => setSettings({ ...settings, allowVoteChange: value })} />
             <Toggle label="Роли назначает ведущий" value={settings.roleAssignmentMode === "manual"} onChange={(value) => setSettings({ ...settings, roleAssignmentMode: value ? "manual" : "random" })} />
+            <Toggle label="Ведущий участвует в игре" value={settings.hostPlays} onChange={(value) => setSettings(changeHostParticipation(settings, value))} />
           </div>
           <label className="mafia-field"><span>Правило ничьей</span><select value={settings.tieRule} onChange={(event) => setSettings({ ...settings, tieRule: event.target.value as MafiaRoomSettings["tieRule"] })}><option value="no_execution">Никого не исключать</option><option value="revote">Повторить голосование</option></select></label>
         </div>
@@ -108,6 +109,7 @@ function fromSnapshot(snapshot: MafiaSnapshot): MafiaRoomSettings {
     votingSeconds: room.settings.votingSeconds,
     roles: room.settings.roles,
     roleAssignmentMode: room.settings.roleAssignmentMode ?? "random",
+    hostPlays: room.settings.hostPlays !== false,
     allowVoteChange: room.settings.allowVoteChange,
     tieRule: room.settings.tieRule,
   };

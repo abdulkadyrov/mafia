@@ -43,7 +43,8 @@ export async function startGame(context: CommandContext, roomId: string) {
   }
   const hostMember = members.find((member) => member.user_id === room.host_user_id);
   if (!hostMember) throw new CommandError("Ведущий не найден в комнате", 409, "host_missing");
-  const activeMembers = members.filter((member) => member.id !== hostMember.id);
+  const hostPlays = room.settings.hostPlays !== false;
+  const activeMembers = hostPlays ? members : members.filter((member) => member.id !== hostMember.id);
   const roleCounts = getDefaultRoleCounts(activeMembers.length, room);
   try {
     buildRoleDeck(roleCounts, activeMembers.length);
@@ -70,7 +71,7 @@ export async function startGame(context: CommandContext, roomId: string) {
     const playerAssignments = room.settings.roleAssignmentMode === "manual"
       ? await buildManualAssignments(context, activeMembers, roleCounts, room)
       : assignRoles(activeMembers.map((member) => member.id), roleCounts, randomUnit);
-    const assignments = [
+    const assignments = hostPlays ? playerAssignments : [
       ...playerAssignments,
       { playerId: hostMember.id, role: "host" as const, team: "host" as const },
     ];
@@ -115,7 +116,7 @@ export async function startGame(context: CommandContext, roomId: string) {
       event_type: "game_started",
       visibility: "public",
       target_user_id: null,
-      payload: { gameNumber, roleAssignmentMode: room.settings.roleAssignmentMode ?? "random" },
+      payload: { gameNumber, roleAssignmentMode: room.settings.roleAssignmentMode ?? "random", hostPlays },
     });
     await addSystemMessage(context.admin, room, game, "Партия началась. Роли распределены.");
     const createdPlayers = await getGamePlayers(context.admin, game.id);
@@ -165,7 +166,7 @@ export async function submitNightAction(
   const target = players.find((player) => player.id === targetGamePlayerId);
   if (!actor || !target) throw new CommandError("Игрок не найден", 404, "player_not_found");
   if (actor.life_status !== "alive" || target.life_status !== "alive") throw new CommandError("Погибший игрок не может участвовать в действии", 403, "dead_player");
-  if (target.is_host || target.team === "host") throw new CommandError("Ведущий не является игровой целью", 403, "host_target_forbidden");
+  if (target.team === "host") throw new CommandError("Ведущий-наблюдатель не является игровой целью", 403, "host_target_forbidden");
   validateNightAction(game.phase, actor, target, actionType);
 
   if (actionType === "doctor_heal" && actor.id === target.id) {
@@ -528,7 +529,7 @@ function toDomainPlayer(player: GamePlayerRow): DomainGamePlayer {
     role: player.role,
     team: player.team,
     lifeStatus: player.life_status,
-    isHost: player.is_host,
+    isModerator: player.team === "host",
   };
 }
 

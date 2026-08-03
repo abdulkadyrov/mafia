@@ -8,7 +8,7 @@ const players: DomainGamePlayer[] = ["a", "b", "c", "d"].map((id) => ({
   role: "civilian",
   team: "city",
   lifeStatus: "alive",
-  isHost: false,
+  isModerator: false,
 }));
 
 describe("voting", () => {

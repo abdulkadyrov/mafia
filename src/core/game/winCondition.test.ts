@@ -8,7 +8,7 @@ const player = (id: string, role: DomainGamePlayer["role"], lifeStatus: DomainGa
   role,
   team: role === "mafia" || role === "don" ? "mafia" : role === "maniac" ? "neutral" : role === "host" ? "host" : "city",
   lifeStatus,
-  isHost: role === "host",
+  isModerator: role === "host",
 });
 
 describe("win conditions", () => {

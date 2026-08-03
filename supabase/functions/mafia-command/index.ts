@@ -114,7 +114,7 @@ async function dispatch(context: CommandContext, command: MafiaCommand): Promise
     case "set_host_mute": return setHostMute(context, command.roomId, command.targetUserId, command.muted);
     case "add_bots": return addBots(context, command.roomId, command.count);
     case "remove_bot": return removeBot(context, command.roomId, command.roomPlayerId);
-    case "configure_roles": return configureRoles(context, command.roomId, command.mode, command.assignments);
+    case "configure_roles": return configureRoles(context, command.roomId, command.mode, command.assignments, command.hostPlays);
     case "cancel_room": return cancelRoom(context, command.roomId);
     case "start_game": return startGame(context, command.roomId);
     case "acknowledge_role": return acknowledgeRole(context, command.roomId);

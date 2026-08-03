@@ -26,6 +26,7 @@ export type RoomSettingsInput = {
   votingSeconds?: number;
   roles?: RoleCounts;
   roleAssignmentMode?: "random" | "manual";
+  hostPlays?: boolean;
   allowVoteChange?: boolean;
   tieRule?: "no_execution" | "revote";
 };
@@ -57,6 +58,7 @@ export type MafiaCommand =
       type: "configure_roles";
       roomId: string;
       mode: "random" | "manual";
+      hostPlays: boolean;
       assignments: Record<string, MafiaRole>;
     }
   | { commandId: string; type: "cancel_room"; roomId: string }

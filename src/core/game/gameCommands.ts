@@ -64,8 +64,8 @@ export const mafiaCommands = {
     invokeMafiaCommand<MafiaSnapshot>({ type: "add_bots", roomId, count }),
   removeBot: (roomId: string, roomPlayerId: string) =>
     invokeMafiaCommand<MafiaSnapshot>({ type: "remove_bot", roomId, roomPlayerId }),
-  configureRoles: (roomId: string, mode: "random" | "manual", assignments: Record<string, MafiaRole>) =>
-    invokeMafiaCommand<MafiaSnapshot>({ type: "configure_roles", roomId, mode, assignments }),
+  configureRoles: (roomId: string, mode: "random" | "manual", assignments: Record<string, MafiaRole>, hostPlays: boolean) =>
+    invokeMafiaCommand<MafiaSnapshot>({ type: "configure_roles", roomId, mode, assignments, hostPlays }),
   cancelRoom: (roomId: string) => invokeMafiaCommand<{ cancelled: true }>({ type: "cancel_room", roomId }),
   leave: (roomId: string) => invokeMafiaCommand<{ left: true }>({ type: "leave_room", roomId }),
 };

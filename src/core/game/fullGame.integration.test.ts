@@ -63,8 +63,8 @@ describe("full seven-player production round", () => {
 
 const chatPolicy = { chatEnabled: true, deadChatEnabled: true, deadCanReadAliveChat: false };
 
-function player(id: string, role: DomainGamePlayer["role"], team: DomainGamePlayer["team"], isHost = false): DomainGamePlayer {
-  return { id, userId: `user-${id}`, role, team, lifeStatus: "alive", isHost };
+function player(id: string, role: DomainGamePlayer["role"], team: DomainGamePlayer["team"], isModerator = false): DomainGamePlayer {
+  return { id, userId: `user-${id}`, role, team, lifeStatus: "alive", isModerator };
 }
 
 function aliveRoles(players: DomainGamePlayer[]) {

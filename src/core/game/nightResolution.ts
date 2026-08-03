@@ -11,7 +11,7 @@ export function resolveNight(
   players: readonly DomainGamePlayer[],
   actions: readonly DomainNightAction[]
 ): NightResolution {
-  const aliveIds = new Set(players.filter((player) => player.lifeStatus === "alive" && !player.isHost).map((player) => player.id));
+  const aliveIds = new Set(players.filter((player) => player.lifeStatus === "alive" && !player.isModerator).map((player) => player.id));
   const blocked = new Set(
     actions.filter((action) => action.type === "mistress_block" && aliveIds.has(action.targetId)).map((action) => action.targetId)
   );

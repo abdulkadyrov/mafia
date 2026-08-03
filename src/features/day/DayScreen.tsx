@@ -34,7 +34,7 @@ export function DayScreen({ snapshot, applySnapshot, video, onDeviceSettings, on
   const phase = snapshot.game?.phase ?? "day_announcement";
   const self = snapshot.players.find((player) => player.id === snapshot.self.roomPlayerId)!;
   const canVote = phase === "day_voting" && snapshot.self.lifeStatus === "alive" && !voted;
-  const targets = snapshot.players.filter((player) => player.life_status === "alive" && !player.is_host && player.gamePlayerId && player.id !== self.id);
+  const targets = snapshot.players.filter((player) => player.life_status === "alive" && !(player.is_host && snapshot.room.settings.hostPlays === false) && player.gamePlayerId && player.id !== self.id);
   const currentRound = snapshot.game?.round_number ?? 1;
   const roundEvents = snapshot.events.filter((event) => event.round_number === currentRound);
   const deathEvents = roundEvents.filter((event) => event.event_type === "player_died");

@@ -240,6 +240,6 @@ function toMindPlayer(player: GamePlayerRow): BotMindPlayer {
     role: player.role,
     team: player.team,
     lifeStatus: player.life_status,
-    isHost: player.is_host,
+    isModerator: player.team === "host",
   };
 }

@@ -26,7 +26,7 @@ export function MafiaGame({ onHome, onNewRoom }: { onHome: () => void; onNewRoom
     phase: snapshot.room.phase,
     lifeStatus: snapshot.self.lifeStatus,
     team: snapshot.self.team ?? (snapshot.self.isHost ? "host" : "city"),
-    isHost: snapshot.self.isHost,
+    isHost: snapshot.self.team === "host",
     hostMuted: snapshot.players.find((player) => player.id === snapshot.self.roomPlayerId)?.microphone_blocked ?? false,
   }) : false;
   const videoAllowed = Boolean(snapshot?.room.video_enabled && (

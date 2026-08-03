@@ -15,6 +15,7 @@ export function NightScreen({ snapshot, applySnapshot, onCancel }: { snapshot: M
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const phase = snapshot.game?.phase ?? "night_intro";
+  const isModerator = snapshot.self.isHost && snapshot.room.settings.hostPlays === false;
   const role = snapshot.self.role;
   const actionType = getActionForPhase(role, phase);
   const canAct = snapshot.self.lifeStatus === "alive" && Boolean(actionType);
@@ -113,12 +114,12 @@ export function NightScreen({ snapshot, applySnapshot, onCancel }: { snapshot: M
                 </div>
               </>
             ) : null}
-            {snapshot.self.isHost && phase.startsWith("night_") ? <HostNightMonitor snapshot={snapshot} /> : null}
+            {isModerator && phase.startsWith("night_") ? <HostNightMonitor snapshot={snapshot} /> : null}
           </section>
           {isMafiaChatVisible ? <aside><GameChat snapshot={snapshot} defaultChannel="mafia_chat" /></aside> : null}
         </div>
 
-        {snapshot.self.isHost ? <footer className="mafia-action-bar"><span className="mafia-muted-copy">Ведущий видит служебные события, но не раскрывает их игрокам.</span><button className="mafia-secondary-button danger" onClick={onCancel}>Отменить игру</button><button className="mafia-primary-button" disabled={busy} onClick={() => void advance()}>{busy ? "Обрабатываем…" : phase === "night_resolution" ? "Объявить утро" : "Следующая фаза"}</button></footer> : null}
+        {snapshot.self.isHost ? <footer className="mafia-action-bar"><span className="mafia-muted-copy">{isModerator ? "Ведущий наблюдает за партией." : "Вы играете и одновременно управляете переходами фаз."}</span><button className="mafia-secondary-button danger" onClick={onCancel}>Отменить игру</button><button className="mafia-primary-button" disabled={busy} onClick={() => void advance()}>{busy ? "Обрабатываем…" : phase === "night_resolution" ? "Объявить утро" : "Следующая фаза"}</button></footer> : null}
         {error ? <div className="mafia-toast">{error}</div> : null}
       </section>
     </main>
@@ -201,7 +202,8 @@ function getActionForPhase(role: MafiaSnapshot["self"]["role"], phase: string): 
 }
 
 function canTarget(snapshot: MafiaSnapshot, player: MafiaPlayerView, action: NightActionType | null) {
-  if (!action || player.life_status !== "alive" || player.is_host || !player.gamePlayerId) return false;
+  const isModerator = player.is_host && snapshot.room.settings.hostPlays === false;
+  if (!action || player.life_status !== "alive" || isModerator || !player.gamePlayerId) return false;
   if (action === "doctor_heal") return true;
   if (player.gamePlayerId === snapshot.self.gamePlayerId) return false;
   if (action === "mafia_kill" && player.team === "mafia") return false;

@@ -18,6 +18,7 @@ export type MafiaRoomSettings = {
   votingSeconds: number;
   roles: RoleCounts;
   roleAssignmentMode: "random" | "manual";
+  hostPlays: boolean;
   allowVoteChange: boolean;
   tieRule: "no_execution" | "revote";
 };
@@ -48,6 +49,7 @@ export type MafiaRoomRecord = {
     votingSeconds: number;
     roles: RoleCounts;
     roleAssignmentMode: "random" | "manual";
+    hostPlays?: boolean;
     manualRoles?: Record<string, MafiaRole>;
     allowVoteChange: boolean;
     tieRule: "no_execution" | "revote";

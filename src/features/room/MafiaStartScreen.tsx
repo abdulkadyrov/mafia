@@ -3,7 +3,7 @@ import { MafiaBackground } from "../../core/ui/MafiaBackground";
 import { routes } from "../../core/config/routes";
 import { createMafiaRoom, joinMafiaRoom, normalizeMafiaRoomCode } from "../../core/room/mafiaRoomService";
 import type { MafiaRoomSettings } from "../../core/room/mafiaRoomTypes";
-import { changePlayerLimit, changeRoleCount } from "./roleSettings";
+import { changeHostParticipation, changePlayerLimit, changeRoleCount } from "./roleSettings";
 
 const defaultSettings: MafiaRoomSettings = {
   name: "Вечерняя мафия",
@@ -19,8 +19,9 @@ const defaultSettings: MafiaRoomSettings = {
   nightSeconds: 45,
   discussionSeconds: 180,
   votingSeconds: 45,
-  roles: { mafia: 2, don: 0, doctor: 1, commissioner: 1, maniac: 0, mistress: 0, bodyguard: 0, civilian: 2 },
+  roles: { mafia: 2, don: 0, doctor: 1, commissioner: 1, maniac: 0, mistress: 0, bodyguard: 0, civilian: 3 },
   roleAssignmentMode: "random",
+  hostPlays: true,
   allowVoteChange: false,
   tieRule: "no_execution",
 };
@@ -92,6 +93,7 @@ export function MafiaStartScreen({ navigate }: { navigate: (path: string) => voi
                 <Toggle label="Камера обязательна" checked={settings.cameraRequired} onChange={(value) => setSettings({ ...settings, cameraRequired: value })} />
                 <Toggle label="Игровой чат" checked={settings.chatEnabled} onChange={(value) => setSettings({ ...settings, chatEnabled: value })} />
                 <Toggle label="Роли назначает ведущий" checked={settings.roleAssignmentMode === "manual"} onChange={(value) => setSettings({ ...settings, roleAssignmentMode: value ? "manual" : "random" })} />
+                <Toggle label="Ведущий участвует в игре" checked={settings.hostPlays} onChange={(value) => setSettings(changeHostParticipation(settings, value))} />
                 <Toggle label="Чат погибших" checked={settings.deadChatEnabled} onChange={(value) => setSettings({ ...settings, deadChatEnabled: value })} />
                 <Toggle label="Наблюдение после смерти" checked={settings.deadCanObserve} onChange={(value) => setSettings({ ...settings, deadCanObserve: value })} />
                 <Toggle label="Погибшие читают чат живых" checked={settings.deadCanReadAliveChat} onChange={(value) => setSettings({ ...settings, deadCanReadAliveChat: value })} />

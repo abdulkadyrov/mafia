@@ -32,5 +32,5 @@ describe("medium bot strategy", () => {
 });
 
 function player(id: string, role: BotMindPlayer["role"], team: BotMindPlayer["team"]): BotMindPlayer {
-  return { id, role, team, lifeStatus: "alive", isHost: false };
+  return { id, role, team, lifeStatus: "alive", isModerator: false };
 }

@@ -22,23 +22,36 @@ export function changeRoleCount(settings: MafiaRoomSettings, role: Role, request
   const nextCount = Math.max(0, Math.min(roleLimits[role] ?? 16, Math.trunc(requested)));
   const roles = { ...settings.roles, [role]: nextCount };
   const special = specialRoleCount(roles);
-  const maxPlayers = Math.min(16, Math.max(settings.maxPlayers, special + 1));
-  if (special > maxPlayers - 1) return settings;
+  const reservedModeratorSlots = settings.hostPlays ? 0 : 1;
+  const maxPlayers = Math.min(16, Math.max(settings.maxPlayers, special + reservedModeratorSlots));
+  if (special > maxPlayers - reservedModeratorSlots) return settings;
 
   return {
     ...settings,
     maxPlayers,
-    roles: { ...roles, civilian: maxPlayers - 1 - special },
+    roles: { ...roles, civilian: maxPlayers - reservedModeratorSlots - special },
   };
 }
 
 export function changePlayerLimit(settings: MafiaRoomSettings, requested: number): MafiaRoomSettings {
   const special = specialRoleCount(settings.roles);
-  const maxPlayers = Math.max(Math.max(6, special + 1), Math.min(16, Math.trunc(requested)));
+  const reservedModeratorSlots = settings.hostPlays ? 0 : 1;
+  const maxPlayers = Math.max(Math.max(6, special + reservedModeratorSlots), Math.min(16, Math.trunc(requested)));
   return {
     ...settings,
     maxPlayers,
-    roles: { ...settings.roles, civilian: maxPlayers - 1 - special },
+    roles: { ...settings.roles, civilian: maxPlayers - reservedModeratorSlots - special },
+  };
+}
+
+export function changeHostParticipation(settings: MafiaRoomSettings, hostPlays: boolean): MafiaRoomSettings {
+  const special = specialRoleCount(settings.roles);
+  const playablePlayers = settings.maxPlayers - (hostPlays ? 0 : 1);
+  if (special > playablePlayers) return settings;
+  return {
+    ...settings,
+    hostPlays,
+    roles: { ...settings.roles, civilian: playablePlayers - special },
   };
 }
 

@@ -36,7 +36,7 @@ describe("night resolution", () => {
   });
 
   it("never treats the host as a valid night target", () => {
-    const state = [...players, { ...makePlayer("host", "host", "host"), isHost: true }];
+    const state = [...players, { ...makePlayer("host", "host", "host"), isModerator: true }];
     expect(resolveNight(state, [{ actorId: "m1", targetId: "host", type: "mafia_kill" }]).killedPlayerIds).toEqual([]);
   });
 
@@ -50,5 +50,5 @@ describe("night resolution", () => {
 });
 
 function makePlayer(id: string, role: DomainGamePlayer["role"], team: DomainGamePlayer["team"]): DomainGamePlayer {
-  return { id, userId: `u-${id}`, role, team, lifeStatus: "alive", isHost: false };
+  return { id, userId: `u-${id}`, role, team, lifeStatus: "alive", isModerator: false };
 }

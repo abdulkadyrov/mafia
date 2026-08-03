@@ -5,7 +5,7 @@ export type BotMindPlayer = {
   role: MafiaRole;
   team: MafiaTeam;
   lifeStatus: "alive" | "dead" | "disconnected";
-  isHost: boolean;
+  isModerator: boolean;
 };
 
 export type BotMindContext = {
@@ -21,7 +21,7 @@ export function chooseMediumBotNightTarget(
   context: BotMindContext = {},
   random: () => number = Math.random
 ): BotMindPlayer | null {
-  const alive = players.filter((player) => player.lifeStatus === "alive" && !player.isHost);
+  const alive = players.filter((player) => player.lifeStatus === "alive" && !player.isModerator);
   let candidates = alive.filter((player) => player.id !== actor.id);
   if (actor.role === "doctor") candidates = alive;
   if (actor.team === "mafia") candidates = candidates.filter((player) => player.team !== "mafia");
@@ -41,7 +41,7 @@ export function chooseMediumBotVote(
   random: () => number = Math.random
 ): BotMindPlayer | null {
   let candidates = players.filter((player) =>
-    player.lifeStatus === "alive" && !player.isHost && player.id !== actor.id
+    player.lifeStatus === "alive" && !player.isModerator && player.id !== actor.id
   );
   const knownMafia = new Set(context.knownMafiaIds ?? []);
   const confirmed = candidates.filter((player) => knownMafia.has(player.id));

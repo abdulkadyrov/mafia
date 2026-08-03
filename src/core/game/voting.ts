@@ -11,7 +11,7 @@ export function resolveVotes(
   players: readonly DomainGamePlayer[],
   votes: readonly DomainVote[]
 ): VoteResolution {
-  const aliveIds = new Set(players.filter((player) => player.lifeStatus === "alive" && !player.isHost).map((player) => player.id));
+  const aliveIds = new Set(players.filter((player) => player.lifeStatus === "alive" && !player.isModerator).map((player) => player.id));
   const uniqueVoters = new Set<string>();
   const counts: Record<string, number> = {};
 

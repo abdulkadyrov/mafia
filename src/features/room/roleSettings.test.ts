@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MafiaRoomSettings } from "../../core/room/mafiaRoomTypes";
-import { changePlayerLimit, changeRoleCount } from "./roleSettings";
+import { changeHostParticipation, changePlayerLimit, changeRoleCount } from "./roleSettings";
 
 const settings: MafiaRoomSettings = {
   name: "Вечерняя мафия",
@@ -20,6 +20,7 @@ const settings: MafiaRoomSettings = {
   allowVoteChange: false,
   tieRule: "no_execution",
   roleAssignmentMode: "random",
+  hostPlays: false,
 };
 
 describe("room role settings", () => {
@@ -39,5 +40,11 @@ describe("room role settings", () => {
     const result = changePlayerLimit(settings, 9);
     expect(result.maxPlayers).toBe(9);
     expect(result.roles.civilian).toBe(4);
+  });
+
+  it("adds the administrator to the playable role deck", () => {
+    const result = changeHostParticipation(settings, true);
+    expect(result.hostPlays).toBe(true);
+    expect(result.roles.civilian).toBe(3);
   });
 });

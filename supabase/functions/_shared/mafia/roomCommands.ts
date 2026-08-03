@@ -337,7 +337,8 @@ export async function configureRoles(
   context: CommandContext,
   roomId: string,
   mode: "random" | "manual",
-  assignments: Record<string, MafiaRole>
+  assignments: Record<string, MafiaRole>,
+  hostPlays: boolean
 ) {
   const room = await requireHost(context, roomId);
   if (room.status !== "lobby") throw new CommandError("Роли назначаются только в лобби", 409, "not_lobby");
@@ -348,7 +349,8 @@ export async function configureRoles(
     .eq("room_id", roomId)
     .neq("life_status", "disconnected");
   if (error) throw new CommandError("Не удалось загрузить игроков", 500, "players_load_failed");
-  const assignableIds = new Set((data ?? []).filter((player) => !player.is_host).map((player) => String(player.id)));
+  const playingHost = hostPlays !== false;
+  const assignableIds = new Set((data ?? []).filter((player) => !player.is_host || playingHost).map((player) => String(player.id)));
   const cleanAssignments: Record<string, MafiaRole> = {};
   for (const [playerId, role] of Object.entries(assignments ?? {})) {
     if (!assignableIds.has(playerId)) continue;
@@ -371,6 +373,7 @@ export async function configureRoles(
     settings: {
       ...room.settings,
       roleAssignmentMode: mode,
+      hostPlays: playingHost,
     },
   }).eq("id", roomId);
   if (updateError) throw new CommandError("Не удалось сохранить назначение ролей", 500, "role_configuration_failed");
@@ -382,7 +385,7 @@ export async function configureRoles(
     event_type: "role_assignment_configured",
     visibility: "host",
     target_user_id: null,
-    payload: { mode, assignedCount: Object.keys(cleanAssignments).length },
+    payload: { mode, hostPlays: playingHost, assignedCount: Object.keys(cleanAssignments).length },
   });
   return getSnapshot(context, roomId);
 }
