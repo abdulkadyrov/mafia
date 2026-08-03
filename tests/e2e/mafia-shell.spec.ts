@@ -32,7 +32,13 @@ test("keeps mobile lobby controls compact and free of horizontal scrolling", asy
             </div>
           </header>
           <footer class="mafia-action-bar mafia-lobby-actions">
-            <button class="mafia-secondary-button">Камера и микрофон</button>
+            <div class="mafia-video-controls">
+              <button><span>●</span><span class="mafia-action-label--desktop">Микрофон</span><span class="mafia-action-label--mobile">Мик</span></button>
+              <button><span>●</span><span class="mafia-action-label--desktop">Камера</span><span class="mafia-action-label--mobile">Кам</span></button>
+              <button><span>⚙</span><span class="mafia-action-label--desktop">Устройства</span><span class="mafia-action-label--mobile">Устр.</span></button>
+            </div>
+            <button class="mafia-secondary-button"><span class="mafia-action-label--desktop">Закрыть вход</span><span class="mafia-action-label--mobile">Закрыть</span></button>
+            <button class="mafia-primary-button"><span class="mafia-action-label--desktop">Начать игру</span><span class="mafia-action-label--mobile">Старт</span></button>
           </footer>
         </div>
         <div class="mafia-modal-backdrop mafia-device-backdrop">
@@ -60,11 +66,14 @@ test("keeps mobile lobby controls compact and free of horizontal scrolling", asy
     const footer = document.querySelector<HTMLElement>(".mafia-action-bar")!;
     const modal = document.querySelector<HTMLElement>(".mafia-device-modal")!;
     const icon = document.querySelector<HTMLElement>(".mafia-room-header-actions .mafia-icon-button")!;
+    const actionButtons = Array.from(footer.querySelectorAll<HTMLElement>("button"));
     return {
       pageOverflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       footerOverflows: footer.scrollWidth > footer.clientWidth,
       modalOverflows: modal.scrollHeight > modal.clientHeight,
       iconFontSize: Number.parseFloat(getComputedStyle(icon).fontSize),
+      actionRows: new Set(actionButtons.map((button) => Math.round(button.getBoundingClientRect().top))).size,
+      actionButtonWidths: actionButtons.map((button) => Math.round(button.getBoundingClientRect().width)),
     };
   });
 
@@ -72,6 +81,8 @@ test("keeps mobile lobby controls compact and free of horizontal scrolling", asy
   expect(geometry.footerOverflows).toBe(false);
   expect(geometry.modalOverflows).toBe(false);
   expect(geometry.iconFontSize).toBeGreaterThanOrEqual(20);
+  expect(geometry.actionRows).toBe(1);
+  expect(Math.max(...geometry.actionButtonWidths) - Math.min(...geometry.actionButtonWidths)).toBeLessThanOrEqual(1);
 });
 
 test("shows lobby players as a four-column video grid with overlay details", async ({ page }) => {

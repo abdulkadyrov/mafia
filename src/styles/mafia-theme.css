@@ -272,6 +272,7 @@
 .mafia-action-bar { position: fixed; z-index: 30; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: flex-end; gap: 0.7rem; min-height: 72px; border-top: 1px solid var(--mafia-line); background: rgba(7, 9, 10, 0.94); padding: 0.7rem max(1rem, env(safe-area-inset-right)) max(0.7rem, env(safe-area-inset-bottom)); backdrop-filter: blur(18px); }
 .mafia-lobby-actions { justify-content: space-between; }
 .mafia-muted-copy { color: var(--mafia-muted); font-size: 0.72rem; }
+.mafia-action-label--mobile { display: none; }
 
 .mafia-floating-chat-button { position: fixed; z-index: 75; right: max(1rem, env(safe-area-inset-right)); bottom: max(5.8rem, calc(env(safe-area-inset-bottom) + 5.1rem)); display: flex; min-height: 46px; align-items: center; gap: 0.45rem; border: 1px solid rgba(199, 165, 91, 0.72); border-radius: 999px; background: rgba(13, 15, 16, 0.96); color: #ead18f; padding: 0.65rem 0.85rem; box-shadow: 0 14px 35px rgba(0, 0, 0, 0.55); cursor: pointer; backdrop-filter: blur(14px); }
 .mafia-floating-chat-button > span { font-size: 0.72rem; }

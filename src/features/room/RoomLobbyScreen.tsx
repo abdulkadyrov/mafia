@@ -169,18 +169,26 @@ export function RoomLobbyScreen({
             video.joined ? (
               <VideoControls provider={video.provider} cameraEnabled={video.cameraEnabled} microphoneEnabled={video.microphoneEnabled} microphoneAllowed joined onSettings={() => setShowDevices(true)} />
             ) : (
-              <button className="mafia-secondary-button" onClick={() => setShowDevices(true)}>Камера и микрофон</button>
+              <button className="mafia-secondary-button" onClick={() => setShowDevices(true)}>
+                <span className="mafia-action-label--desktop">Камера и микрофон</span>
+                <span className="mafia-action-label--mobile">Устройства</span>
+              </button>
             )
           ) : <span className="mafia-muted-copy">Видеосвязь отключена ведущим</span>}
           {!snapshot.self.isHost ? (
             <button className={selfPlayer.is_ready ? "mafia-secondary-button" : "mafia-primary-button"} disabled={Boolean(busy)} onClick={() => void run("ready", () => mafiaCommands.setReady(snapshot.room.id, !selfPlayer.is_ready))}>
-              {selfPlayer.is_ready ? "Я не готов" : "Я готов"}
+              <span className="mafia-action-label--desktop">{selfPlayer.is_ready ? "Я не готов" : "Я готов"}</span>
+              <span className="mafia-action-label--mobile">{selfPlayer.is_ready ? "Не готов" : "Готов"}</span>
             </button>
           ) : (
             <>
-              <button className="mafia-secondary-button" onClick={() => void run("lock", () => mafiaCommands.lockRoom(snapshot.room.id, !snapshot.room.join_locked))}>{snapshot.room.join_locked ? "Открыть вход" : "Закрыть вход"}</button>
+              <button className="mafia-secondary-button" onClick={() => void run("lock", () => mafiaCommands.lockRoom(snapshot.room.id, !snapshot.room.join_locked))}>
+                <span className="mafia-action-label--desktop">{snapshot.room.join_locked ? "Открыть вход" : "Закрыть вход"}</span>
+                <span className="mafia-action-label--mobile">{snapshot.room.join_locked ? "Открыть" : "Закрыть"}</span>
+              </button>
               <button className="mafia-primary-button" disabled={!allReady || Boolean(busy)} onClick={() => void run("start", () => mafiaCommands.startGame(snapshot.room.id))}>
-                {busy === "start" ? "Распределяем роли…" : "Начать игру"}
+                <span className="mafia-action-label--desktop">{busy === "start" ? "Распределяем роли…" : "Начать игру"}</span>
+                <span className="mafia-action-label--mobile">{busy === "start" ? "Ждём…" : "Старт"}</span>
               </button>
             </>
           )}

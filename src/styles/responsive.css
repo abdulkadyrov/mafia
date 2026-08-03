@@ -117,10 +117,13 @@
   .mafia-action-bar { overflow-x: hidden; flex-wrap: wrap; justify-content: center; gap: 0.4rem; padding: 0.5rem; }
   .mafia-action-bar > button { min-width: 0; flex: 1 1 120px; padding: 0.65rem 0.7rem; font-size: 0.68rem; white-space: normal; }
   .mafia-action-bar .mafia-muted-copy { display: none; }
-  .mafia-lobby-actions { justify-content: flex-start; }
+  .mafia-lobby-actions { display: grid; min-height: 58px; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; align-items: stretch; gap: 0.25rem; padding: 0.38rem; }
   .mafia-lobby-actions > .mafia-primary-button,
-  .mafia-lobby-actions > .mafia-secondary-button { min-width: 0; }
-  .mafia-lobby-actions .mafia-video-controls { min-width: 0; flex: 1 1 100%; }
+  .mafia-lobby-actions > .mafia-secondary-button,
+  .mafia-lobby-actions .mafia-video-controls button { min-width: 0; min-height: 44px; width: auto; border-radius: 8px; padding: 0.35rem 0.2rem; font-size: 0.54rem; line-height: 1.1; white-space: nowrap; }
+  .mafia-lobby-actions .mafia-video-controls { display: contents; }
+  .mafia-lobby-actions .mafia-action-label--desktop { display: none; }
+  .mafia-lobby-actions .mafia-action-label--mobile { display: inline; }
   .mafia-video-controls { flex-wrap: nowrap; }
   .mafia-video-controls button { padding: 0.55rem 0.7rem; font-size: 0.66rem; }
   .mafia-phase-header { align-items: center; }
