@@ -11,6 +11,8 @@ import { VideoControls } from "../video/VideoControls";
 import { VideoGrid } from "../video/VideoGrid";
 import { RoomQrCode } from "./RoomQrCode";
 import { RoomSettingsPanel } from "./RoomSettingsPanel";
+import { AudioSettingsModal } from "../audio/AudioSettingsModal";
+import { useMafiaAudio } from "../../core/audio/MafiaAudioProvider";
 
 type VideoState = {
   provider: VideoProvider;
@@ -42,9 +44,11 @@ export function RoomLobbyScreen({
   const [showQr, setShowQr] = React.useState(false);
   const [showDevices, setShowDevices] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
+  const [showAudio, setShowAudio] = React.useState(false);
   const [busy, setBusy] = React.useState("");
   const [error, setError] = React.useState("");
   const selfPlayer = snapshot.players.find((player) => player.id === snapshot.self.roomPlayerId)!;
+  const audio = useMafiaAudio();
   const inviteUrl = `${location.origin}${import.meta.env.BASE_URL}#${`/game/mafia/join?roomCode=${snapshot.room.code}`}`;
   const allReady = snapshot.players.length >= 6 && snapshot.players.every((player) => player.is_host || player.is_ready);
 
@@ -74,6 +78,7 @@ export function RoomLobbyScreen({
           <div className="mafia-room-header-actions">
             <span>♟ {snapshot.players.length} / {snapshot.room.max_players}</span>
             <button className="mafia-icon-button" onClick={() => setShowQr(true)} aria-label="Показать QR">▦</button>
+            <button className="mafia-icon-button" onClick={() => setShowAudio(true)} aria-label="Громкость">{audio.allMuted || audio.masterVolume === 0 ? "🔇" : "♪"}</button>
             {snapshot.self.isHost ? <button className="mafia-icon-button" onClick={() => setShowSettings(true)} aria-label="Настройки">⚙</button> : null}
           </div>
         </header>
@@ -141,6 +146,7 @@ export function RoomLobbyScreen({
 
       {showQr ? <div className="mafia-modal-backdrop" onMouseDown={() => setShowQr(false)}><section className="mafia-modal mafia-qr-modal" onMouseDown={(event) => event.stopPropagation()}><button className="mafia-modal-close" onClick={() => setShowQr(false)}>×</button><RoomQrCode value={inviteUrl} code={snapshot.room.code} /><button className="mafia-primary-button" onClick={() => void share()}>Поделиться приглашением</button></section></div> : null}
       <DeviceCheckModal open={showDevices} onClose={() => setShowDevices(false)} provider={video.provider} devices={video.devices} joined={video.joined} roomId={snapshot.room.id} selectedCameraDeviceId={video.selectedCameraDeviceId} selectedMicrophoneDeviceId={video.selectedMicrophoneDeviceId} selectedOutputDeviceId={video.selectedOutputDeviceId} />
+      <AudioSettingsModal open={showAudio} onClose={() => setShowAudio(false)} />
       <RoomSettingsPanel snapshot={snapshot} open={showSettings} onClose={() => setShowSettings(false)} onSaved={applySnapshot} onCancel={onCancel} />
     </main>
   );

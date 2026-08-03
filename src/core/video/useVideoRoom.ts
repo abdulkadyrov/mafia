@@ -3,7 +3,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "../supabase/client";
 import { enforceAudioPermission } from "./audioPermissions";
 import { listMediaDevices, requestMedia, stopMediaStream, type DeviceInventory } from "./mediaDevices";
-import { closePeer, createPeerConnection, syncLocalTracks } from "./peerConnectionService";
+import { closePeer, createPeerConnection, syncLocalTracks, waitForIceGatheringComplete } from "./peerConnectionService";
 import { closeSignalSubscription, sendVideoSignal, subscribeToVideoSignals } from "./signalingService";
 import type { VideoParticipant, VideoProvider, VideoSignal } from "./videoTypes";
 
@@ -34,12 +34,15 @@ export function useVideoRoom(options: {
   const cameraDeviceIdRef = React.useRef("");
   const microphoneDeviceIdRef = React.useRef("");
   const pendingIceRef = React.useRef(new Map<string, RTCIceCandidateInit[]>());
+  const processedSignalIdsRef = React.useRef(new Set<number>());
+  const signalQueueRef = React.useRef<Promise<void>>(Promise.resolve());
 
   const createAndSendOffer = React.useCallback(async (remoteUserId: string, peer: RTCPeerConnection, iceRestart = false) => {
     if (peer.signalingState !== "stable") return;
     const offer = await peer.createOffer({ iceRestart });
     await peer.setLocalDescription(offer);
-    await sendVideoSignal(roomIdRef.current!, userIdRef.current!, remoteUserId, "offer", offer);
+    await waitForIceGatheringComplete(peer);
+    await sendVideoSignal(roomIdRef.current!, userIdRef.current!, remoteUserId, "offer", peer.localDescription ?? offer);
   }, []);
 
   const removePeer = React.useCallback((remoteUserId: string) => {
@@ -74,6 +77,7 @@ export function useVideoRoom(options: {
       },
       onStateChange: (connectionState) => {
         setParticipants((current) => upsertParticipant(current, remoteUserId, { connectionState }));
+        if (connectionState === "connected") setError("");
         if (connectionState === "failed") void restartIce(remoteUserId, peer);
       },
       onNegotiationNeeded: () => {
@@ -97,11 +101,16 @@ export function useVideoRoom(options: {
     const roomId = roomIdRef.current;
     const userId = userIdRef.current;
     if (!roomId || !userId) return;
-    const { data } = await getSupabaseClient()
+    const { data, error: sessionsError } = await getSupabaseClient()
       .from("mafia_video_sessions")
       .select("user_id, audio_allowed, connection_state")
       .eq("room_id", roomId)
-      .neq("connection_state", "closed");
+      .neq("connection_state", "closed")
+      .gte("last_seen_at", new Date(Date.now() - 45_000).toISOString());
+    if (sessionsError) {
+      setError("Не удалось обновить список участников видеосвязи");
+      return;
+    }
     const sessions = (data ?? []) as VideoSessionRow[];
     const activeRemoteIds = new Set(sessions.filter((session) => session.user_id !== userId).map((session) => session.user_id));
     for (const remoteUserId of peersRef.current.keys()) {
@@ -114,6 +123,8 @@ export function useVideoRoom(options: {
   }, [ensurePeer, removePeer]);
 
   const handleSignal = React.useCallback(async (signal: VideoSignal) => {
+    if (processedSignalIdsRef.current.has(signal.id)) return;
+    processedSignalIdsRef.current.add(signal.id);
     try {
       const peer = ensurePeer(signal.sender_user_id, false);
       if (signal.signal_type === "offer") {
@@ -122,7 +133,8 @@ export function useVideoRoom(options: {
         await flushPendingIce(peer, signal.sender_user_id, pendingIceRef.current);
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
-        await sendVideoSignal(signal.room_id, userIdRef.current!, signal.sender_user_id, "answer", answer);
+        await waitForIceGatheringComplete(peer);
+        await sendVideoSignal(signal.room_id, userIdRef.current!, signal.sender_user_id, "answer", peer.localDescription ?? answer);
       } else if (signal.signal_type === "answer") {
         await peer.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
         await flushPendingIce(peer, signal.sender_user_id, pendingIceRef.current);
@@ -134,12 +146,34 @@ export function useVideoRoom(options: {
       } else if (signal.signal_type === "leave") {
         removePeer(signal.sender_user_id);
       }
-    } catch {
+    } catch (caught) {
+      console.warn("Video signal processing failed", signal.signal_type, caught);
       setError("Соединение с одним из участников прервано");
     } finally {
-      void getSupabaseClient().from("mafia_video_signals").delete().eq("id", signal.id);
+      const { error: deleteError } = await getSupabaseClient().from("mafia_video_signals").delete().eq("id", signal.id);
+      if (deleteError) console.warn("Video signal cleanup failed", deleteError.message);
     }
   }, [createAndSendOffer, ensurePeer, removePeer]);
+
+  const queueSignal = React.useCallback((signal: VideoSignal): Promise<void> => {
+    signalQueueRef.current = signalQueueRef.current.then(() => handleSignal(signal));
+    return signalQueueRef.current;
+  }, [handleSignal]);
+
+  const recoverSignaling = React.useCallback(async () => {
+    const roomId = roomIdRef.current;
+    const userId = userIdRef.current;
+    if (!roomId || !userId) return;
+    const { data, error: signalError } = await getSupabaseClient()
+      .from("mafia_video_signals")
+      .select("*")
+      .eq("room_id", roomId)
+      .eq("receiver_user_id", userId)
+      .order("id", { ascending: true });
+    if (signalError) throw new Error("Не удалось восстановить сигналинг видеосвязи");
+    for (const signal of (data ?? []) as VideoSignal[]) await queueSignal(signal);
+    await refreshSessions();
+  }, [queueSignal, refreshSessions]);
 
   const provider = React.useMemo<VideoProvider>(() => ({
     joinRoom: async (roomId) => {
@@ -148,6 +182,8 @@ export function useVideoRoom(options: {
       if (!user) throw new Error("Войдите в аккаунт для видеосвязи");
       userIdRef.current = user.id;
       roomIdRef.current = roomId;
+      processedSignalIdsRef.current.clear();
+      await getSupabaseClient().from("mafia_video_signals").delete().eq("room_id", roomId).eq("receiver_user_id", user.id);
       const { error: sessionError } = await getSupabaseClient().from("mafia_video_sessions").upsert({
         room_id: roomId,
         user_id: user.id,
@@ -158,10 +194,23 @@ export function useVideoRoom(options: {
         last_seen_at: new Date().toISOString(),
       }, { onConflict: "room_id,user_id" });
       if (sessionError) throw new Error("Не удалось войти в видеокомнату");
-      signalChannelRef.current = subscribeToVideoSignals(roomId, user.id, handleSignal, () => void refreshSessions());
-      await refreshSessions();
-      await getSupabaseClient().from("mafia_video_sessions").update({ connection_state: "connected" }).eq("room_id", roomId).eq("user_id", user.id);
-      setJoined(true);
+      try {
+        signalChannelRef.current = await subscribeToVideoSignals(
+          roomId,
+          user.id,
+          (signal) => void queueSignal(signal),
+          () => void refreshSessions(),
+          () => void recoverSignaling().catch(() => setError("Видеосвязь переподключается"))
+        );
+        await recoverSignaling();
+        await getSupabaseClient().from("mafia_video_sessions").update({ connection_state: "connected" }).eq("room_id", roomId).eq("user_id", user.id);
+        setJoined(true);
+      } catch (caught) {
+        await closeSignalSubscription(signalChannelRef.current);
+        signalChannelRef.current = null;
+        await getSupabaseClient().from("mafia_video_sessions").update({ connection_state: "failed" }).eq("room_id", roomId).eq("user_id", user.id);
+        throw caught;
+      }
     },
     leaveRoom: async () => {
       const roomId = roomIdRef.current;
@@ -182,6 +231,8 @@ export function useVideoRoom(options: {
       peersRef.current.clear();
       streamsRef.current.clear();
       pendingIceRef.current.clear();
+      processedSignalIdsRef.current.clear();
+      signalQueueRef.current = Promise.resolve();
       stopMediaStream(localStreamRef.current);
       localStreamRef.current = null;
       setLocalStream(null);
@@ -217,7 +268,7 @@ export function useVideoRoom(options: {
       enforceAudioPermission(stream ?? null, allowed);
       setParticipants((current) => upsertParticipant(current, playerId, { audioAllowed: allowed }));
     },
-  }), [cameraEnabled, handleSignal, joined, microphoneEnabled, options.enabled, refreshSessions]);
+  }), [cameraEnabled, joined, microphoneEnabled, options.enabled, queueSignal, recoverSignaling, refreshSessions]);
 
   async function updateLocalMedia(nextCamera: boolean, nextMicrophone: boolean) {
     const allowedMicrophone = nextMicrophone && audioPermissionRef.current;
@@ -267,6 +318,20 @@ export function useVideoRoom(options: {
     navigator.mediaDevices?.addEventListener?.("devicechange", refreshDevices);
     return () => navigator.mediaDevices?.removeEventListener?.("devicechange", refreshDevices);
   }, [options.enabled]);
+
+  React.useEffect(() => {
+    if (!joined) return undefined;
+    const heartbeat = window.setInterval(() => {
+      const roomId = roomIdRef.current;
+      const userId = userIdRef.current;
+      if (!roomId || !userId) return;
+      void getSupabaseClient().from("mafia_video_sessions").update({
+        connection_state: "connected",
+        last_seen_at: new Date().toISOString(),
+      }).eq("room_id", roomId).eq("user_id", userId);
+    }, 15_000);
+    return () => window.clearInterval(heartbeat);
+  }, [joined]);
 
   const providerRef = React.useRef(provider);
   React.useEffect(() => {

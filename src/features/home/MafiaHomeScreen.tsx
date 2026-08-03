@@ -7,10 +7,17 @@ import { Avatar } from "../../core/ui/Avatar";
 import { MafiaBackground } from "../../core/ui/MafiaBackground";
 import { useMafiaAudio } from "../../core/audio/MafiaAudioProvider";
 
+const MafiaQrScanner = React.lazy(() => import("./MafiaQrScanner").then((module) => ({ default: module.MafiaQrScanner })));
+
 export function MafiaHomeScreen({ navigate, onLogout }: { navigate: (path: string) => void; onLogout: () => void }) {
   const { profile } = useAuth();
   const { playMusic, stopMusic } = useMafiaAudio();
   const [rooms, setRooms] = React.useState<MafiaRoomRecord[]>([]);
+  const [showScanner, setShowScanner] = React.useState(false);
+  const handleScannedRoom = React.useCallback((code: string) => {
+    setShowScanner(false);
+    navigate(routes.gameJoin("mafia", code));
+  }, [navigate]);
 
   React.useEffect(() => {
     void getRecentMafiaRooms().then(setRooms).catch(() => setRooms([]));
@@ -42,6 +49,7 @@ export function MafiaHomeScreen({ navigate, onLogout }: { navigate: (path: strin
           <div className="mafia-hero-actions">
             <button className="mafia-primary-button" onClick={() => navigate(routes.launch("mafia"))}>Создать комнату</button>
             <button className="mafia-secondary-button" onClick={() => navigate(`${routes.launch("mafia")}?join=1`)}>Войти по коду</button>
+            <button className="mafia-secondary-button mafia-scan-button" onClick={() => setShowScanner(true)}>▦ Сканировать QR</button>
           </div>
         </div>
 
@@ -62,6 +70,11 @@ export function MafiaHomeScreen({ navigate, onLogout }: { navigate: (path: strin
           </section>
         ) : null}
       </section>
+      {showScanner ? (
+        <React.Suspense fallback={null}>
+          <MafiaQrScanner open onClose={() => setShowScanner(false)} onRoomCode={handleScannedRoom} />
+        </React.Suspense>
+      ) : null}
     </main>
   );
 }

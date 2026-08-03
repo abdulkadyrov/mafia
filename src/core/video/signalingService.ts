@@ -25,8 +25,9 @@ export function subscribeToVideoSignals(
   roomId: string,
   userId: string,
   onSignal: (signal: VideoSignal) => void,
-  onParticipantChange: () => void
-): RealtimeChannel {
+  onParticipantChange: () => void,
+  onReconnect: () => void
+): Promise<RealtimeChannel> {
   const client = getSupabaseClient();
   const channel = client.channel(`mafia-video:${roomId}:${userId}`);
   channel.on(
@@ -39,7 +40,27 @@ export function subscribeToVideoSignals(
     { event: "*", schema: "public", table: "mafia_video_sessions", filter: `room_id=eq.${roomId}` },
     onParticipantChange
   );
-  return channel.subscribe();
+  return new Promise((resolve, reject) => {
+    let subscribedOnce = false;
+    const fail = (message: string) => {
+      window.clearTimeout(timeout);
+      void client.removeChannel(channel);
+      reject(new Error(message));
+    };
+    const timeout = window.setTimeout(() => fail("Видеосвязь не подключилась к Realtime"), 10_000);
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        if (subscribedOnce) onReconnect();
+        else {
+          subscribedOnce = true;
+          window.clearTimeout(timeout);
+          resolve(channel);
+        }
+      } else if (!subscribedOnce && (status === "CHANNEL_ERROR" || status === "TIMED_OUT")) {
+        fail("Realtime видеосвязи временно недоступен");
+      }
+    });
+  });
 }
 
 export async function closeSignalSubscription(channel: RealtimeChannel | null): Promise<void> {

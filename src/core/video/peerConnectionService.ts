@@ -31,6 +31,22 @@ export function createPeerConnection(input: {
   return peer;
 }
 
+export async function waitForIceGatheringComplete(peer: RTCPeerConnection, timeoutMs = 3_000): Promise<void> {
+  if (peer.iceGatheringState === "complete") return;
+  await new Promise<void>((resolve) => {
+    const finish = () => {
+      window.clearTimeout(timeout);
+      peer.removeEventListener("icegatheringstatechange", onStateChange);
+      resolve();
+    };
+    const onStateChange = () => {
+      if (peer.iceGatheringState === "complete") finish();
+    };
+    const timeout = window.setTimeout(finish, timeoutMs);
+    peer.addEventListener("icegatheringstatechange", onStateChange);
+  });
+}
+
 export function syncLocalTracks(peer: RTCPeerConnection, stream: MediaStream | null): void {
   const currentSenders = peer.getSenders();
   const desiredTracks = stream?.getTracks() ?? [];
