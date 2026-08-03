@@ -6,10 +6,12 @@ import type { MafiaPlayerView, MafiaSnapshot } from "../../core/room/mafiaRoomTy
 import { PlayerCard } from "../../core/ui/PlayerCard";
 import { PhaseTimer } from "../../core/ui/PhaseTimer";
 import { GameChat } from "../chat/GameChat";
+import { getLatestMafiaChoices, type MafiaChoice } from "./mafiaConsensus";
 
 export function NightScreen({ snapshot, applySnapshot, onCancel }: { snapshot: MafiaSnapshot; applySnapshot: (snapshot: MafiaSnapshot) => void; onCancel: () => void }) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [submitted, setSubmitted] = React.useState(false);
+  const [dismissedChoiceId, setDismissedChoiceId] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const phase = snapshot.game?.phase ?? "night_intro";
@@ -18,10 +20,43 @@ export function NightScreen({ snapshot, applySnapshot, onCancel }: { snapshot: M
   const canAct = snapshot.self.lifeStatus === "alive" && Boolean(actionType);
   const candidates = snapshot.players.filter((player) => canTarget(snapshot, player, actionType));
   const isMafiaChatVisible = snapshot.self.team === "mafia" && phase === "night_mafia";
+  const isMafiaDecision = actionType === "mafia_kill";
+  const roundNumber = snapshot.game?.round_number ?? 1;
+  const gameId = snapshot.game?.id ?? null;
+  const mafiaChoices = React.useMemo(
+    () => getLatestMafiaChoices(snapshot.events, roundNumber, gameId),
+    [gameId, roundNumber, snapshot.events]
+  );
+  const ownChoice = mafiaChoices.find((choice) => choice.actorId === snapshot.self.gamePlayerId);
+  const otherChoices = mafiaChoices.filter((choice) => choice.actorId !== snapshot.self.gamePlayerId);
+  const allMafiaAgree = mafiaChoices.length > 1 && new Set(mafiaChoices.map((choice) => choice.targetId)).size === 1;
+  const choiceToAnswer = [...otherChoices].reverse().find((choice) => !ownChoice || choice.targetId !== ownChoice.targetId)
+    ?? [...otherChoices].reverse()[0];
+  const choicePlayer = choiceToAnswer
+    ? snapshot.players.find((player) => player.gamePlayerId === choiceToAnswer.targetId)
+    : undefined;
+  const showChoicePrompt = isMafiaDecision
+    && !allMafiaAgree
+    && Boolean(choiceToAnswer && choicePlayer)
+    && String(choiceToAnswer?.eventId) !== dismissedChoiceId;
+
+  React.useEffect(() => {
+    setSubmitted(false);
+    setSelectedId(null);
+    setDismissedChoiceId(null);
+  }, [phase, roundNumber]);
+
+  React.useEffect(() => {
+    if (!isMafiaDecision || !ownChoice) return;
+    const selectedPlayer = snapshot.players.find((player) => player.gamePlayerId === ownChoice.targetId);
+    setSubmitted(true);
+    setSelectedId(selectedPlayer?.id ?? null);
+  }, [isMafiaDecision, ownChoice, snapshot.players]);
 
   async function submit(player: MafiaPlayerView) {
-    if (!actionType || !player.gamePlayerId || submitted) return;
+    if (!actionType || !player.gamePlayerId || (submitted && !isMafiaDecision)) return;
     setSelectedId(player.id);
+    if (choiceToAnswer) setDismissedChoiceId(String(choiceToAnswer.eventId));
     setBusy(true);
     setError("");
     try {
@@ -59,9 +94,22 @@ export function NightScreen({ snapshot, applySnapshot, onCancel }: { snapshot: M
             {!canAct && phase !== "night_intro" && phase !== "night_resolution" ? <SleepingState text={snapshot.self.lifeStatus === "dead" ? "Вы наблюдаете за игрой. Микрофон отключён." : "Ваша роль спит. Не подсматривайте за действиями других игроков."} /> : null}
             {canAct ? (
               <>
-                <div className="mafia-action-instruction"><span>{actionIcon(actionType!)}</span><div><strong>{actionLabel(actionType!)}</strong><p>{submitted ? "Решение сохранено и не может быть изменено." : "Выберите живого игрока. Решение можно отправить только один раз."}</p></div></div>
+                {isMafiaDecision && allMafiaAgree && ownChoice ? (
+                  <MafiaAgreement player={snapshot.players.find((player) => player.gamePlayerId === ownChoice.targetId)} />
+                ) : null}
+                {showChoicePrompt && choiceToAnswer && choicePlayer ? (
+                  <MafiaChoicePrompt
+                    snapshot={snapshot}
+                    choice={choiceToAnswer}
+                    target={choicePlayer}
+                    busy={busy}
+                    onAgree={() => void submit(choicePlayer)}
+                    onChooseAnother={() => setDismissedChoiceId(String(choiceToAnswer.eventId))}
+                  />
+                ) : null}
+                <div className="mafia-action-instruction"><span>{actionIcon(actionType!)}</span><div><strong>{actionLabel(actionType!)}</strong><p>{isMafiaDecision ? (submitted ? "Ваш выбор сохранён. Его можно изменить до конца хода мафии." : "Выберите жертву или согласитесь с выбором напарника.") : (submitted ? "Решение сохранено и не может быть изменено." : "Выберите живого игрока. Решение можно отправить только один раз.")}</p></div></div>
                 <div className="mafia-target-grid">
-                  {candidates.map((player) => <PlayerCard key={player.id} player={player} selected={player.id === selectedId} disabled={submitted || busy} compact onClick={() => void submit(player)} />)}
+                  {candidates.map((player) => <PlayerCard key={player.id} player={player} selected={player.id === selectedId} disabled={busy || (submitted && !isMafiaDecision)} compact onClick={() => void submit(player)} />)}
                 </div>
               </>
             ) : null}
@@ -74,6 +122,37 @@ export function NightScreen({ snapshot, applySnapshot, onCancel }: { snapshot: M
         {error ? <div className="mafia-toast">{error}</div> : null}
       </section>
     </main>
+  );
+}
+
+function MafiaChoicePrompt({ snapshot, choice, target, busy, onAgree, onChooseAnother }: {
+  snapshot: MafiaSnapshot;
+  choice: MafiaChoice;
+  target: MafiaPlayerView;
+  busy: boolean;
+  onAgree: () => void;
+  onChooseAnother: () => void;
+}) {
+  const actor = snapshot.players.find((player) => player.gamePlayerId === choice.actorId);
+  return (
+    <section className="mafia-consensus-card" aria-live="polite">
+      <span className="mafia-eyebrow">Решение напарника</span>
+      <h2>{actor?.display_name ?? "Игрок мафии"} <small>(мафия)</small> выбрал убить {target.display_name}</h2>
+      <p>Вы согласны с ним или хотите выбрать другого?</p>
+      <div>
+        <button className="mafia-primary-button" disabled={busy} onClick={onAgree}>Согласен</button>
+        <button className="mafia-secondary-button" disabled={busy} onClick={onChooseAnother}>Выбрать другого</button>
+      </div>
+    </section>
+  );
+}
+
+function MafiaAgreement({ player }: { player?: MafiaPlayerView }) {
+  return (
+    <div className="mafia-consensus-agreed" aria-live="polite">
+      <span>✓</span>
+      <div><strong>Цель согласована</strong><p>Мафия выбрала: {player?.display_name ?? "игрок"}</p></div>
+    </div>
   );
 }
 

@@ -382,6 +382,15 @@
 .mafia-action-instruction strong { font-family: Georgia, serif; font-size: 1.5rem; }
 .mafia-action-instruction p { margin: 0.2rem 0; color: var(--mafia-muted); font-size: 0.76rem; }
 .mafia-target-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.55rem; }
+.mafia-consensus-card { display: grid; gap: 0.7rem; margin-bottom: 1rem; border: 1px solid rgba(224, 56, 50, 0.48); border-radius: 12px; background: linear-gradient(135deg, rgba(96, 17, 17, 0.42), rgba(12, 13, 14, 0.94)); padding: 1rem; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.28); }
+.mafia-consensus-card h2 { margin: 0; font-family: Georgia, serif; font-size: clamp(1.25rem, 3vw, 1.75rem); }
+.mafia-consensus-card h2 small { color: var(--mafia-red-bright); font-family: inherit; font-size: 0.68em; }
+.mafia-consensus-card p { margin: 0; color: var(--mafia-muted); }
+.mafia-consensus-card > div { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.mafia-consensus-card button { min-width: 150px; }
+.mafia-consensus-agreed { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem; border: 1px solid rgba(100, 168, 107, 0.36); border-radius: 10px; background: rgba(100, 168, 107, 0.1); padding: 0.8rem 1rem; }
+.mafia-consensus-agreed > span { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: rgba(100, 168, 107, 0.2); color: var(--mafia-green); font-weight: 900; }
+.mafia-consensus-agreed p { margin: 0.15rem 0 0; color: var(--mafia-muted); font-size: 0.76rem; }
 
 /* Day */
 .mafia-announcement-panel,

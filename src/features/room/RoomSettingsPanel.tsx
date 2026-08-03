@@ -1,6 +1,7 @@
 import React from "react";
 import { mafiaCommands } from "../../core/game/gameCommands";
 import type { MafiaRoomSettings, MafiaSnapshot } from "../../core/room/mafiaRoomTypes";
+import { changePlayerLimit, changeRoleCount } from "./roleSettings";
 
 export function RoomSettingsPanel({ snapshot, open, onClose, onSaved, onCancel }: {
   snapshot: MafiaSnapshot;
@@ -36,7 +37,7 @@ export function RoomSettingsPanel({ snapshot, open, onClose, onSaved, onCancel }
         <h2>Настройки комнаты</h2>
         <div className="mafia-settings-form">
           <label className="mafia-field"><span>Название</span><input value={settings.name} onChange={(event) => setSettings({ ...settings, name: event.target.value })} /></label>
-          <label className="mafia-field"><span>Максимум участников</span><select value={settings.maxPlayers} onChange={(event) => setSettings({ ...settings, maxPlayers: Number(event.target.value) })}>{Array.from({ length: 11 }, (_, index) => index + 6).map((count) => <option key={count}>{count}</option>)}</select></label>
+          <label className="mafia-field"><span>Максимум участников</span><select value={settings.maxPlayers} onChange={(event) => setSettings(changePlayerLimit(settings, Number(event.target.value)))}>{Array.from({ length: 11 }, (_, index) => index + 6).map((count) => <option key={count}>{count}</option>)}</select></label>
           <div className="mafia-three-columns">
             <NumberField label="Ночь" value={settings.nightSeconds} onChange={(value) => setSettings({ ...settings, nightSeconds: value })} />
             <NumberField label="Обсуждение" value={settings.discussionSeconds} onChange={(value) => setSettings({ ...settings, discussionSeconds: value })} />
@@ -44,9 +45,9 @@ export function RoomSettingsPanel({ snapshot, open, onClose, onSaved, onCancel }
           </div>
           <div className="mafia-role-counters">
             {(["mafia", "don", "doctor", "commissioner", "maniac", "mistress", "bodyguard"] as const).map((role) => (
-              <RoleCounter key={role} label={roleLabel(role)} value={Number(settings.roles[role] ?? 0)} onChange={(value) => setSettings({ ...settings, roles: { ...settings.roles, [role]: Math.max(0, value) } })} />
+              <RoleCounter key={role} label={roleLabel(role)} value={Number(settings.roles[role] ?? 0)} onChange={(value) => setSettings(changeRoleCount(settings, role, value))} />
             ))}
-            <div className="mafia-role-counter"><span>Мирные</span><div><strong>{civilianCount(settings)}</strong></div></div>
+            <RoleCounter label="Мирные" value={Number(settings.roles.civilian ?? 0)} onChange={(value) => setSettings(changeRoleCount(settings, "civilian", value))} />
           </div>
           <div className="mafia-toggle-grid">
             <Toggle label="Приватная комната" value={settings.isPrivate} onChange={(value) => setSettings({ ...settings, isPrivate: value })} />
@@ -81,16 +82,11 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 }
 
 function RoleCounter({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
-  return <div className="mafia-role-counter"><span>{label}</span><div><button onClick={() => onChange(value - 1)} aria-label={`Уменьшить ${label}`}>−</button><strong>{value}</strong><button onClick={() => onChange(value + 1)} aria-label={`Увеличить ${label}`}>+</button></div></div>;
+  return <div className="mafia-role-counter"><span>{label}</span><div><button type="button" onClick={() => onChange(value - 1)} aria-label={`Уменьшить ${label}`}>−</button><strong>{value}</strong><button type="button" onClick={() => onChange(value + 1)} aria-label={`Увеличить ${label}`}>+</button></div></div>;
 }
 
 function roleLabel(role: keyof MafiaRoomSettings["roles"]) {
   return { mafia: "Мафия", don: "Дон", doctor: "Доктор", commissioner: "Комиссар", maniac: "Маньяк", mistress: "Любовница", bodyguard: "Телохранитель", civilian: "Мирные", host: "Ведущий" }[role];
-}
-
-function civilianCount(settings: MafiaRoomSettings) {
-  const special = Object.entries(settings.roles).filter(([role]) => role !== "civilian" && role !== "host").reduce((total, [, count]) => total + Number(count ?? 0), 0);
-  return Math.max(0, settings.maxPlayers - 1 - special);
 }
 
 function fromSnapshot(snapshot: MafiaSnapshot): MafiaRoomSettings {

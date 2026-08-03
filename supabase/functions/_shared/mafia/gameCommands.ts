@@ -170,16 +170,21 @@ export async function submitNightAction(
     }
   }
 
-  const { error } = await context.admin.from("mafia_game_actions").insert({
+  const values = {
     game_id: game.id,
     round_number: game.round_number,
     phase: game.phase,
     actor_game_player_id: actor.id,
     target_game_player_id: target.id,
     action_type: actionType,
-  });
-  if (error?.code === "23505") throw new CommandError("Действие этой ночи уже сохранено", 409, "action_already_submitted");
-  if (error) throw new CommandError("Не удалось сохранить действие", 500, "action_submit_failed");
+  };
+  const result = actionType === "mafia_kill"
+    ? await context.admin.from("mafia_game_actions").upsert(values, {
+      onConflict: "game_id,round_number,actor_game_player_id,phase",
+    })
+    : await context.admin.from("mafia_game_actions").insert(values);
+  if (result.error?.code === "23505") throw new CommandError("Действие этой ночи уже сохранено", 409, "action_already_submitted");
+  if (result.error) throw new CommandError("Не удалось сохранить действие", 500, "action_submit_failed");
 
   await addEvent(context.admin, {
     room_id: roomId,

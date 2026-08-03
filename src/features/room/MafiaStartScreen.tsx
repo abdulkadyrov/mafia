@@ -3,6 +3,7 @@ import { MafiaBackground } from "../../core/ui/MafiaBackground";
 import { routes } from "../../core/config/routes";
 import { createMafiaRoom, joinMafiaRoom, normalizeMafiaRoomCode } from "../../core/room/mafiaRoomService";
 import type { MafiaRoomSettings } from "../../core/room/mafiaRoomTypes";
+import { changePlayerLimit, changeRoleCount } from "./roleSettings";
 
 const defaultSettings: MafiaRoomSettings = {
   name: "Вечерняя мафия",
@@ -64,7 +65,7 @@ export function MafiaStartScreen({ navigate }: { navigate: (path: string) => voi
               </Field>
               <div className="mafia-two-columns">
                 <Field label="Количество игроков">
-                  <select value={settings.maxPlayers} onChange={(event) => setSettings({ ...settings, maxPlayers: Number(event.target.value) })}>
+                  <select value={settings.maxPlayers} onChange={(event) => setSettings(changePlayerLimit(settings, Number(event.target.value)))}>
                     {Array.from({ length: 11 }, (_, index) => index + 6).map((count) => <option key={count}>{count}</option>)}
                   </select>
                 </Field>
@@ -82,7 +83,7 @@ export function MafiaStartScreen({ navigate }: { navigate: (path: string) => voi
                 <RoleCounter label="Маньяк" value={Number(settings.roles.maniac ?? 0)} onChange={(value) => updateRole("maniac", value)} />
                 <RoleCounter label="Любовница" value={Number(settings.roles.mistress ?? 0)} onChange={(value) => updateRole("mistress", value)} />
                 <RoleCounter label="Телохранитель" value={Number(settings.roles.bodyguard ?? 0)} onChange={(value) => updateRole("bodyguard", value)} />
-                <RoleCountDisplay label="Мирные" value={civilianCount(settings)} />
+                <RoleCounter label="Мирные" value={Number(settings.roles.civilian ?? 0)} onChange={(value) => updateRole("civilian", value)} />
               </div>
               <div className="mafia-toggle-grid">
                 <Toggle label="Приватная комната" checked={settings.isPrivate} onChange={(value) => setSettings({ ...settings, isPrivate: value })} />
@@ -133,7 +134,7 @@ export function MafiaStartScreen({ navigate }: { navigate: (path: string) => voi
   );
 
   function updateRole(role: keyof MafiaRoomSettings["roles"], value: number) {
-    setSettings({ ...settings, roles: { ...settings.roles, [role]: Math.max(0, value) } });
+    setSettings(changeRoleCount(settings, role, value));
   }
 }
 
@@ -142,11 +143,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function RoleCounter({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
-  return <div className="mafia-role-counter"><span>{label}</span><div><button onClick={() => onChange(value - 1)} aria-label={`Уменьшить ${label}`}>−</button><strong>{value}</strong><button onClick={() => onChange(value + 1)} aria-label={`Увеличить ${label}`}>+</button></div></div>;
-}
-
-function RoleCountDisplay({ label, value }: { label: string; value: number }) {
-  return <div className="mafia-role-counter"><span>{label}</span><div><strong>{value}</strong></div></div>;
+  return <div className="mafia-role-counter"><span>{label}</span><div><button type="button" onClick={() => onChange(value - 1)} aria-label={`Уменьшить ${label}`}>−</button><strong>{value}</strong><button type="button" onClick={() => onChange(value + 1)} aria-label={`Увеличить ${label}`}>+</button></div></div>;
 }
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
@@ -155,9 +152,4 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 
 function NumberInput({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   return <Field label={`${label}, сек`}><input type="number" min={15} max={900} value={value} onChange={(event) => onChange(Number(event.target.value))} /></Field>;
-}
-
-function civilianCount(settings: MafiaRoomSettings) {
-  const special = Object.entries(settings.roles).filter(([role]) => role !== "civilian").reduce((total, [, count]) => total + Number(count ?? 0), 0);
-  return Math.max(0, settings.maxPlayers - 1 - special);
 }

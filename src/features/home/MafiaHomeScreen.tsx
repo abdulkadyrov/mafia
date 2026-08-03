@@ -37,7 +37,6 @@ export function MafiaHomeScreen({ navigate, onLogout }: { navigate: (path: strin
         </header>
 
         <div className="mafia-hero">
-          <p className="mafia-eyebrow">Abdulkadyrov Games</p>
           <h1>MAFIA</h1>
           <p>Мир интриг, алиби и тихих решений. Соберите друзей — город уже засыпает.</p>
           <div className="mafia-hero-actions">

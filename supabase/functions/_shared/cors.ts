@@ -1,5 +1,14 @@
 const defaultOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
 
+function isLocalDevelopmentOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+  } catch {
+    return false;
+  }
+}
+
 export function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("origin") ?? "";
   const configured = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
@@ -7,7 +16,9 @@ export function corsHeaders(request: Request): Record<string, string> {
     .map((value) => value.trim())
     .filter(Boolean);
   const allowed = new Set([...defaultOrigins, ...configured]);
-  const selectedOrigin = allowed.has(origin) ? origin : configured[0] ?? defaultOrigins[0];
+  const selectedOrigin = allowed.has(origin) || isLocalDevelopmentOrigin(origin)
+    ? origin
+    : configured[0] ?? defaultOrigins[0];
 
   return {
     "Access-Control-Allow-Origin": selectedOrigin,
