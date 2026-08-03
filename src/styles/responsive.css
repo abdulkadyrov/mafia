@@ -8,8 +8,8 @@
 
 @media (max-width: 860px) {
   .mafia-auth-card { grid-template-columns: 1fr; }
-  .mafia-wordmark { min-height: 260px; padding: 2rem 1rem; }
-  .mafia-wordmark strong { font-size: clamp(4rem, 20vw, 6rem); }
+  .mafia-wordmark { min-height: 180px; padding: 1.25rem 1rem; }
+  .mafia-wordmark strong { font-size: clamp(3.7rem, 17vw, 5.4rem); }
   .mafia-lobby-layout,
   .mafia-night-layout.with-chat,
   .mafia-discussion-layout { grid-template-columns: 1fr; }
@@ -23,6 +23,19 @@
 @media (max-width: 640px) {
   .mafia-cinematic-bg { background-position: center; }
   .mafia-cinematic-bg { background-image: var(--mafia-bg-phone); }
+  .mafia-auth-shell { display: block; padding: max(0.4rem, env(safe-area-inset-top)) 0.4rem max(0.4rem, env(safe-area-inset-bottom)); }
+  .mafia-auth-card { min-height: calc(100dvh - 0.8rem); border-radius: 12px; }
+  .mafia-wordmark { min-height: 126px; padding: 0.7rem; }
+  .mafia-wordmark-kicker { font-size: 0.56rem; letter-spacing: 0.18em; }
+  .mafia-wordmark strong { margin: 0.1rem 0; font-size: clamp(3rem, 17vw, 4.2rem); }
+  .mafia-wordmark > span:last-child { font-size: 0.72rem; }
+  .mafia-auth-form { justify-content: flex-start; padding: 1rem 1rem 0.8rem; }
+  .mafia-auth-form h1 { margin: 0.25rem 0 0.35rem; font-size: 1.65rem; }
+  .mafia-auth-form > p { margin-bottom: 0.8rem; font-size: 0.75rem; line-height: 1.4; }
+  .mafia-auth-form label { gap: 0.3rem; margin-bottom: 0.65rem; }
+  .mafia-auth-form input { min-height: 42px; padding: 0.55rem 0.7rem; }
+  .mafia-auth-form .mafia-primary-button { min-height: 42px; margin-top: 0.15rem; padding: 0.6rem 0.85rem; }
+  .mafia-auth-form .mafia-link-button { min-height: 36px; font-size: 0.72rem; }
   .mafia-home-content { width: min(100% - 1rem, 1180px); }
   .mafia-profile-chip { max-width: calc(100vw - 70px); }
   .mafia-profile-chip > div:last-child { min-width: 0; }
@@ -32,12 +45,36 @@
   .mafia-hero-actions { width: 100%; flex-direction: column; }
   .mafia-hero-actions button { width: 100%; }
   .mafia-recent-grid { grid-template-columns: 1fr; }
-  .mafia-create-page { padding: 0; }
-  .mafia-dialog-shell { min-height: 100dvh; margin: 0; border-width: 0; border-radius: 0; padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(1rem, env(safe-area-inset-bottom)); }
+  .mafia-create-page { display: block; padding: max(0.4rem, env(safe-area-inset-top)) 0.4rem max(0.4rem, env(safe-area-inset-bottom)); }
+  .mafia-dialog-shell { min-height: 0; margin: 0 auto; border-width: 1px; border-radius: 11px; padding: 0.65rem; }
+  .mafia-dialog-header { gap: 0.6rem; padding-bottom: 0.55rem; }
+  .mafia-dialog-header .mafia-icon-button { width: 38px; min-width: 38px; min-height: 38px; }
+  .mafia-dialog-header h1 { font-size: 1.15rem; }
+  .mafia-segmented { margin: 0.55rem 0; }
+  .mafia-segmented button { min-height: 34px; font-size: 0.76rem; }
+  .mafia-settings-form { gap: 0.55rem; }
+  .mafia-settings-form .mafia-field { gap: 0.25rem; }
+  .mafia-settings-form .mafia-field input,
+  .mafia-settings-form .mafia-field select,
+  .mafia-settings-form > .mafia-field input { min-height: 38px; padding: 0.45rem 0.6rem; font-size: 0.78rem; }
   .mafia-two-columns,
   .mafia-three-columns,
   .mafia-toggle-grid { grid-template-columns: 1fr; }
-  .mafia-role-counters { grid-template-columns: repeat(2, 1fr); }
+  .mafia-create-page .mafia-two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
+  .mafia-role-counters { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.3rem; }
+  .mafia-role-counter { gap: 0.3rem; min-width: 0; padding: 0.4rem 0.15rem; }
+  .mafia-role-counter > span { overflow: hidden; font-size: 0.55rem; text-overflow: ellipsis; white-space: nowrap; }
+  .mafia-role-counter > div { grid-template-columns: 24px minmax(16px, 1fr) 24px; }
+  .mafia-role-counter button { width: 23px; height: 23px; padding: 0; font-size: 0.78rem; }
+  .mafia-role-counter strong { font-size: 0.76rem; }
+  .mafia-create-page .mafia-toggle-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem; }
+  .mafia-create-page .mafia-toggle { min-height: 40px; gap: 0.35rem; padding: 0.4rem; }
+  .mafia-create-page .mafia-toggle span { font-size: 0.58rem; line-height: 1.25; }
+  .mafia-create-page .mafia-toggle i { width: 32px; height: 18px; }
+  .mafia-create-page .mafia-toggle i::after { top: 2px; left: 2px; width: 14px; height: 14px; }
+  .mafia-create-page .mafia-toggle input:checked + i::after { transform: translateX(14px); }
+  .mafia-advanced-settings { padding: 0.55rem; }
+  .mafia-submit-room { min-height: 40px; margin-top: 0.55rem; padding: 0.65rem; }
   .mafia-game-shell,
   .mafia-night-shell,
   .mafia-day-shell,
@@ -45,11 +82,37 @@
   .mafia-room-header { gap: 0.45rem; }
   .mafia-room-header-actions > span { display: none; }
   .mafia-section-heading { align-items: flex-start; }
+  .mafia-lobby-main { padding: 0.55rem; }
+  .mafia-lobby-main .mafia-section-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.4rem; margin-bottom: 0.55rem; }
+  .mafia-lobby-main .mafia-section-heading h1 { font-size: 1rem; }
+  .mafia-lobby-main .mafia-eyebrow { font-size: 0.52rem; }
+  .mafia-lobby-main .mafia-lobby-heading-actions { width: auto; flex-wrap: nowrap; gap: 0.3rem; }
+  .mafia-lobby-main .mafia-lobby-heading-actions button { min-height: 34px; padding: 0.4rem 0.5rem; font-size: 0.54rem; white-space: nowrap; }
   .mafia-share-button { padding: 0.55rem 0.7rem; font-size: 0.66rem; }
   .mafia-player-grid,
   .mafia-voting-grid,
   .mafia-target-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mafia-player-card { min-height: 132px; }
+  .mafia-lobby-main .mafia-player-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.28rem; }
+  .mafia-lobby-main .mafia-player-card,
+  .mafia-lobby-main .mafia-empty-player { min-height: 106px; gap: 0.28rem; border-radius: 7px; padding: 0.35rem 0.12rem; }
+  .mafia-lobby-main .mafia-avatar--large { width: 42px; height: 42px; font-size: 0.72rem; }
+  .mafia-lobby-main .mafia-avatar-initials { min-width: 0.8rem; height: 0.8rem; font-size: 0.34rem; }
+  .mafia-lobby-main .mafia-host-crown,
+  .mafia-lobby-main .mafia-death-mark { right: -4px; bottom: -1px; width: 17px; height: 17px; font-size: 0.52rem; }
+  .mafia-lobby-main .mafia-player-meta { width: 100%; gap: 0.12rem; }
+  .mafia-lobby-main .mafia-player-meta strong { font-size: 0.58rem; }
+  .mafia-lobby-main .mafia-player-state { font-size: 0.5rem; }
+  .mafia-lobby-main .mafia-bot-badge { margin-left: 0.15rem; padding: 0.06rem 0.18rem; font-size: 0.38rem; }
+  .mafia-lobby-main .mafia-device-badges { flex-wrap: nowrap; gap: 0.12rem; margin-top: 0.05rem; font-size: 0.39rem; }
+  .mafia-lobby-main .mafia-player-actions { top: 0; right: 0; }
+  .mafia-lobby-main .mafia-player-menu summary { width: 22px; height: 20px; font-size: 0.6rem; }
+  .mafia-lobby-main .mafia-empty-player span { width: 30px; height: 30px; font-size: 1rem; }
+  .mafia-lobby-main .mafia-empty-player strong { font-size: 0.52rem; }
+  .mafia-lobby-video-preview { margin-top: 0.5rem; }
+  .mafia-floating-chat-button { right: max(0.55rem, env(safe-area-inset-right)); bottom: max(5.35rem, calc(env(safe-area-inset-bottom) + 4.75rem)); min-height: 40px; padding: 0.5rem 0.7rem; }
+  .mafia-chat-drawer { right: 0.4rem; bottom: max(5.1rem, calc(env(safe-area-inset-bottom) + 4.5rem)); width: calc(100vw - 0.8rem); max-height: calc(100dvh - 5.9rem); border-radius: 11px; padding: 0.6rem; }
+  .mafia-chat-drawer .mafia-chat-panel { height: calc(100dvh - 10rem); min-height: 280px; }
   .mafia-action-bar { overflow-x: auto; justify-content: flex-start; }
   .mafia-action-bar > button { flex: 1 0 auto; }
   .mafia-action-bar .mafia-muted-copy { display: none; }
@@ -75,6 +138,34 @@
   .mafia-results-actions { flex-direction: column-reverse; }
   .mafia-results-actions button { width: 100%; }
   .mafia-modal { max-height: calc(100dvh - 0.5rem); border-radius: 10px; }
+  .mafia-host-tools-backdrop { padding: 0.35rem; }
+  .mafia-host-tools-modal { max-height: calc(100dvh - 0.7rem); padding: 0.7rem; }
+  .mafia-host-tools-modal .mafia-modal-close { top: 0.45rem; right: 0.45rem; width: 30px; height: 30px; min-height: 30px; font-size: 1rem; }
+  .mafia-host-tools-modal > .mafia-eyebrow { font-size: 0.52rem; }
+  .mafia-host-tools-modal > h2 { margin: 0.15rem 0 0.25rem; font-size: 1.35rem; }
+  .mafia-host-tools-modal > p { max-width: calc(100% - 2rem); margin: 0; font-size: 0.62rem; line-height: 1.35; }
+  .mafia-host-tools-section { gap: 0.45rem; margin-top: 0.5rem; border-radius: 8px; padding: 0.55rem; }
+  .mafia-host-tools-section .mafia-section-heading strong { font-size: 0.74rem; }
+  .mafia-host-tools-section .mafia-section-heading small { font-size: 0.58rem; }
+  .mafia-host-tools-section .mafia-toggle { min-height: 42px; padding: 0.45rem; }
+  .mafia-host-tools-section .mafia-toggle span { font-size: 0.66rem; }
+  .mafia-host-tools-section .mafia-toggle span small { font-size: 0.55rem; line-height: 1.3; }
+  .mafia-host-tools-section .mafia-toggle i { width: 32px; height: 18px; }
+  .mafia-host-tools-section .mafia-toggle i::after { top: 2px; left: 2px; width: 14px; height: 14px; }
+  .mafia-host-tools-section .mafia-toggle input:checked + i::after { transform: translateX(14px); }
+  .mafia-host-tools-modal .mafia-field { gap: 0.25rem; }
+  .mafia-host-tools-modal .mafia-field select { min-height: 36px; padding: 0.4rem 0.55rem; font-size: 0.68rem; }
+  .mafia-host-tools-modal .mafia-modal-actions { gap: 0.35rem; margin-top: 0.55rem; }
+  .mafia-host-tools-modal .mafia-primary-button,
+  .mafia-host-tools-modal .mafia-secondary-button { min-height: 34px; padding: 0.42rem 0.65rem; font-size: 0.62rem; }
+  .mafia-bot-actions { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+  .mafia-role-balance { gap: 0.25rem; }
+  .mafia-role-balance span { padding: 0.18rem 0.35rem; font-size: 0.52rem; }
+  .mafia-manual-role-list { gap: 0.25rem; }
+  .mafia-manual-role-row { gap: 0.35rem; padding-top: 0.35rem; }
+  .mafia-manual-role-row > div:first-child strong { font-size: 0.66rem; }
+  .mafia-manual-role-row > span { font-size: 0.56rem; }
+  .mafia-manual-role-row select { min-height: 34px; padding: 0.35rem 0.45rem; font-size: 0.62rem; }
   .mafia-toast { right: 0.5rem; bottom: 5.2rem; left: 0.5rem; }
 }
 

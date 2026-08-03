@@ -46,7 +46,7 @@ export function HostTestToolsModal({ open, snapshot, onClose, onSaved }: {
   }
 
   return (
-    <div className="mafia-modal-backdrop" onMouseDown={onClose}>
+    <div className="mafia-modal-backdrop mafia-host-tools-backdrop" onMouseDown={onClose}>
       <section className="mafia-modal mafia-host-tools-modal" role="dialog" aria-modal="true" aria-labelledby="host-tools-title" onMouseDown={(event) => event.stopPropagation()}>
         <button className="mafia-modal-close" onClick={onClose} aria-label="Закрыть управление тестированием">×</button>
         <span className="mafia-eyebrow">Только ведущий</span>

@@ -257,13 +257,14 @@
 .mafia-room-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mafia-room-title button { width: max-content; border: 0; background: transparent; color: var(--mafia-muted); padding: 0; font-size: 0.7rem; cursor: pointer; }
 .mafia-room-header-actions { display: flex; align-items: center; gap: 0.6rem; color: #ddd7c8; font-size: 0.8rem; }
-.mafia-lobby-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 0.85rem; margin-top: 0.85rem; }
+.mafia-lobby-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.85rem; margin-top: 0.85rem; }
 .mafia-lobby-main,
 .mafia-lobby-sidebar,
 .mafia-night-action-panel,
 .mafia-day-chat,
 .mafia-discussion-video { border: 1px solid var(--mafia-line); border-radius: 12px; background: rgba(9, 11, 12, 0.83); padding: 1rem; backdrop-filter: blur(12px); }
 .mafia-player-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.6rem; }
+.mafia-lobby-main .mafia-player-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .mafia-empty-player { display: flex; min-height: 142px; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; border: 1px dashed var(--mafia-line-strong); border-radius: 10px; color: var(--mafia-muted); }
 .mafia-empty-player span { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid var(--mafia-line); border-radius: 50%; font-size: 1.5rem; }
 .mafia-empty-player strong { font-size: 0.72rem; }
@@ -271,6 +272,18 @@
 .mafia-action-bar { position: fixed; z-index: 30; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: flex-end; gap: 0.7rem; min-height: 72px; border-top: 1px solid var(--mafia-line); background: rgba(7, 9, 10, 0.94); padding: 0.7rem max(1rem, env(safe-area-inset-right)) max(0.7rem, env(safe-area-inset-bottom)); backdrop-filter: blur(18px); }
 .mafia-lobby-actions { justify-content: space-between; }
 .mafia-muted-copy { color: var(--mafia-muted); font-size: 0.72rem; }
+
+.mafia-floating-chat-button { position: fixed; z-index: 75; right: max(1rem, env(safe-area-inset-right)); bottom: max(5.8rem, calc(env(safe-area-inset-bottom) + 5.1rem)); display: flex; min-height: 46px; align-items: center; gap: 0.45rem; border: 1px solid rgba(199, 165, 91, 0.72); border-radius: 999px; background: rgba(13, 15, 16, 0.96); color: #ead18f; padding: 0.65rem 0.85rem; box-shadow: 0 14px 35px rgba(0, 0, 0, 0.55); cursor: pointer; backdrop-filter: blur(14px); }
+.mafia-floating-chat-button > span { font-size: 0.72rem; }
+.mafia-floating-chat-button > strong { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.mafia-floating-chat-button > em { display: grid; min-width: 20px; height: 20px; place-items: center; border-radius: 999px; background: var(--mafia-red-bright); color: white; padding: 0 0.32rem; font-size: 0.62rem; font-style: normal; font-weight: 900; box-shadow: 0 0 0 3px rgba(224, 56, 50, 0.18); }
+.mafia-chat-drawer-backdrop { position: fixed; z-index: 95; inset: 0; background: rgba(0, 0, 0, 0.62); backdrop-filter: blur(5px); }
+.mafia-chat-drawer { position: fixed; z-index: 96; right: max(0.75rem, env(safe-area-inset-right)); bottom: max(5.6rem, calc(env(safe-area-inset-bottom) + 5rem)); display: grid; width: min(420px, calc(100vw - 1.5rem)); max-height: min(680px, calc(100dvh - 7rem)); overflow: hidden; border: 1px solid var(--mafia-line-strong); border-radius: 14px; background: rgba(10, 13, 14, 0.98); padding: 0.8rem; box-shadow: 0 26px 70px rgba(0, 0, 0, 0.72); }
+.mafia-chat-drawer > header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--mafia-line); padding: 0.1rem 0 0.65rem; }
+.mafia-chat-drawer > header > div { display: grid; gap: 0.15rem; }
+.mafia-chat-drawer > header strong { font-family: Georgia, serif; font-size: 1.15rem; }
+.mafia-chat-drawer .mafia-modal-close { position: static; width: 32px; height: 32px; min-height: 32px; }
+.mafia-chat-drawer .mafia-chat-panel { height: min(62dvh, 560px); min-height: 300px; }
 
 /* Chat */
 .mafia-chat-panel { display: grid; height: min(68dvh, 680px); min-height: 390px; grid-template-rows: auto 1fr auto auto; overflow: hidden; }

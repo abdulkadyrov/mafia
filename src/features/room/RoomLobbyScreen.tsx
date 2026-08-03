@@ -14,6 +14,7 @@ import { RoomSettingsPanel } from "./RoomSettingsPanel";
 import { HostTestToolsModal } from "./HostTestToolsModal";
 import { AudioSettingsModal } from "../audio/AudioSettingsModal";
 import { useMafiaAudio } from "../../core/audio/MafiaAudioProvider";
+import { orderPlayersSelfFirst } from "../../core/room/orderPlayersSelfFirst";
 
 type VideoState = {
   provider: VideoProvider;
@@ -47,12 +48,30 @@ export function RoomLobbyScreen({
   const [showSettings, setShowSettings] = React.useState(false);
   const [showAudio, setShowAudio] = React.useState(false);
   const [showHostTools, setShowHostTools] = React.useState(false);
+  const [showChat, setShowChat] = React.useState(false);
+  const [seenMessageCount, setSeenMessageCount] = React.useState(() => snapshot.messages.length);
   const [busy, setBusy] = React.useState("");
   const [error, setError] = React.useState("");
   const selfPlayer = snapshot.players.find((player) => player.id === snapshot.self.roomPlayerId)!;
+  const orderedPlayers = React.useMemo(
+    () => orderPlayersSelfFirst(snapshot.players, selfPlayer.user_id),
+    [selfPlayer.user_id, snapshot.players],
+  );
+  const unreadMessageCount = Math.max(0, snapshot.messages.length - seenMessageCount);
   const audio = useMafiaAudio();
   const inviteUrl = `${location.origin}${import.meta.env.BASE_URL}#${`/game/mafia/join?roomCode=${snapshot.room.code}`}`;
   const allReady = snapshot.players.length >= 6 && snapshot.players.every((player) => player.is_host || player.is_ready);
+
+  React.useEffect(() => {
+    if (showChat) setSeenMessageCount(snapshot.messages.length);
+  }, [showChat, snapshot.messages.length]);
+
+  React.useEffect(() => {
+    if (!showChat) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setShowChat(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [showChat]);
 
   async function run(label: string, action: () => Promise<MafiaSnapshot>) {
     setBusy(label);
@@ -95,7 +114,7 @@ export function RoomLobbyScreen({
               </div>
             </div>
             <div className="mafia-player-grid">
-              {snapshot.players.map((player) => (
+              {orderedPlayers.map((player) => (
                 <PlayerCard
                   key={player.id}
                   player={player}
@@ -122,15 +141,22 @@ export function RoomLobbyScreen({
 
             {snapshot.room.video_enabled && video.joined ? (
               <div className="mafia-lobby-video-preview">
-                <VideoGrid players={snapshot.players} selfUserId={selfPlayer.user_id} localStream={video.localStream} participants={video.participants} outputDeviceId={video.selectedOutputDeviceId} />
+                <VideoGrid players={orderedPlayers} selfUserId={selfPlayer.user_id} localStream={video.localStream} participants={video.participants} outputDeviceId={video.selectedOutputDeviceId} />
               </div>
             ) : null}
           </section>
-
-          <aside className="mafia-lobby-sidebar">
-            <GameChat snapshot={snapshot} defaultChannel="room_chat" />
-          </aside>
         </div>
+
+        <button
+          className="mafia-floating-chat-button"
+          type="button"
+          onClick={() => { setSeenMessageCount(snapshot.messages.length); setShowChat(true); }}
+          aria-label={unreadMessageCount ? `Открыть чат, новых сообщений: ${unreadMessageCount}` : "Открыть чат"}
+        >
+          <span aria-hidden="true">◆</span>
+          <strong>Чат</strong>
+          {unreadMessageCount ? <em>{unreadMessageCount > 99 ? "99+" : unreadMessageCount}</em> : null}
+        </button>
 
         <footer className="mafia-action-bar mafia-lobby-actions">
           {snapshot.room.video_enabled ? (
@@ -161,6 +187,17 @@ export function RoomLobbyScreen({
       <AudioSettingsModal open={showAudio} onClose={() => setShowAudio(false)} />
       <HostTestToolsModal open={showHostTools} snapshot={snapshot} onClose={() => setShowHostTools(false)} onSaved={applySnapshot} />
       <RoomSettingsPanel snapshot={snapshot} open={showSettings} onClose={() => setShowSettings(false)} onSaved={applySnapshot} onCancel={onCancel} />
+      {showChat ? (
+        <div className="mafia-chat-drawer-backdrop" onMouseDown={() => setShowChat(false)}>
+          <aside className="mafia-chat-drawer" role="dialog" aria-modal="true" aria-labelledby="lobby-chat-title" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div><span className="mafia-eyebrow">Общение</span><strong id="lobby-chat-title">Чат комнаты</strong></div>
+              <button className="mafia-modal-close" onClick={() => setShowChat(false)} aria-label="Закрыть чат">×</button>
+            </header>
+            <GameChat snapshot={snapshot} defaultChannel="room_chat" />
+          </aside>
+        </div>
+      ) : null}
     </main>
   );
 }
