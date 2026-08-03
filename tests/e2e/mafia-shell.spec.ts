@@ -19,7 +19,8 @@ test("keeps mobile lobby controls compact and free of horizontal scrolling", asy
   await page.setViewportSize({ width: 345, height: 613 });
   await page.goto("./");
   await page.locator("#root").evaluate((root) => {
-    root.innerHTML = `
+    const stableRoot = root.cloneNode(false) as HTMLElement;
+    stableRoot.innerHTML = `
       <main class="mafia-page mafia-lobby-page">
         <div class="mafia-game-shell">
           <header class="mafia-room-header">
@@ -60,6 +61,7 @@ test("keeps mobile lobby controls compact and free of horizontal scrolling", asy
           </section>
         </div>
       </main>`;
+    root.replaceWith(stableRoot);
   });
 
   const geometry = await page.evaluate(() => {
@@ -89,10 +91,11 @@ test("shows lobby players as a four-column video grid with overlay details", asy
   await page.setViewportSize({ width: 345, height: 613 });
   await page.goto("./");
   await page.locator("#root").evaluate((root) => {
+    const stableRoot = root.cloneNode(false) as HTMLElement;
     const emptyTiles = Array.from({ length: 7 }, () => `
       <article class="mafia-video-tile mafia-video-tile--empty"><span>＋</span><strong>Свободно</strong></article>
     `).join("");
-    root.innerHTML = `
+    stableRoot.innerHTML = `
       <main class="mafia-page mafia-lobby-page">
         <div class="mafia-game-shell">
           <section class="mafia-lobby-main">
@@ -114,6 +117,7 @@ test("shows lobby players as a four-column video grid with overlay details", asy
           </section>
         </div>
       </main>`;
+    root.replaceWith(stableRoot);
   });
 
   const geometry = await page.evaluate(() => {
