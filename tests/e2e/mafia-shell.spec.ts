@@ -15,6 +15,65 @@ test("renders the secure production entry without horizontal overflow", async ({
   expect(hasHorizontalOverflow).toBe(false);
 });
 
+test("keeps mobile lobby controls compact and free of horizontal scrolling", async ({ page }) => {
+  await page.setViewportSize({ width: 345, height: 613 });
+  await page.goto("./");
+  await page.locator("#root").evaluate((root) => {
+    root.innerHTML = `
+      <main class="mafia-page mafia-lobby-page">
+        <div class="mafia-game-shell">
+          <header class="mafia-room-header">
+            <button class="mafia-icon-button">←</button>
+            <div class="mafia-room-title"><strong>Вечерняя мафия</strong><button>ⓘ A1B2C3</button></div>
+            <div class="mafia-room-header-actions">
+              <button class="mafia-icon-button">▦</button>
+              <button class="mafia-icon-button">♪</button>
+              <button class="mafia-icon-button">⚙</button>
+            </div>
+          </header>
+          <footer class="mafia-action-bar mafia-lobby-actions">
+            <button class="mafia-secondary-button">Камера и микрофон</button>
+          </footer>
+        </div>
+        <div class="mafia-modal-backdrop mafia-device-backdrop">
+          <section class="mafia-modal mafia-device-modal">
+            <button class="mafia-modal-close">×</button>
+            <span class="mafia-eyebrow">Перед игрой</span>
+            <h2>Проверка камеры и микрофона</h2>
+            <p>Браузер попросит разрешение. Вы сможете изменить устройства позднее.</p>
+            <div class="mafia-device-list">
+              <label><strong>Камера</strong><select><option>Системная камера</option></select></label>
+              <label><strong>Микрофон</strong><select><option>Системный микрофон</option></select></label>
+              <label><strong>Динамик</strong><select><option>Системный динамик</option></select><span>Вывод звука применяется ко всем участникам</span></label>
+            </div>
+            <div class="mafia-modal-actions">
+              <button class="mafia-primary-button">Войти в видеокомнату</button>
+              <button class="mafia-secondary-button">Проверить камеру</button>
+              <button class="mafia-secondary-button">Проверить микрофон</button>
+            </div>
+          </section>
+        </div>
+      </main>`;
+  });
+
+  const geometry = await page.evaluate(() => {
+    const footer = document.querySelector<HTMLElement>(".mafia-action-bar")!;
+    const modal = document.querySelector<HTMLElement>(".mafia-device-modal")!;
+    const icon = document.querySelector<HTMLElement>(".mafia-room-header-actions .mafia-icon-button")!;
+    return {
+      pageOverflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      footerOverflows: footer.scrollWidth > footer.clientWidth,
+      modalOverflows: modal.scrollHeight > modal.clientHeight,
+      iconFontSize: Number.parseFloat(getComputedStyle(icon).fontSize),
+    };
+  });
+
+  expect(geometry.pageOverflows).toBe(false);
+  expect(geometry.footerOverflows).toBe(false);
+  expect(geometry.modalOverflows).toBe(false);
+  expect(geometry.iconFontSize).toBeGreaterThanOrEqual(20);
+});
+
 test("publishes a valid Mafia PWA manifest and service worker", async ({ request }) => {
   const manifestResponse = await request.get("manifest.json");
   expect(manifestResponse.ok()).toBe(true);

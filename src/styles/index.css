@@ -18,6 +18,10 @@ body,
   min-height: 100%;
 }
 
+html {
+  touch-action: manipulation;
+}
+
 body {
   margin: 0;
   background: radial-gradient(
@@ -36,6 +40,10 @@ input {
 
 button {
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 * {

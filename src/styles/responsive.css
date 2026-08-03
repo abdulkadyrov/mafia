@@ -81,6 +81,7 @@
   .mafia-results-shell { width: min(100% - 0.75rem, 1480px); }
   .mafia-room-header { gap: 0.45rem; }
   .mafia-room-header-actions > span { display: none; }
+  .mafia-room-header-actions .mafia-icon-button { font-size: 1.45rem; font-weight: 800; line-height: 1; }
   .mafia-section-heading { align-items: flex-start; }
   .mafia-lobby-main { padding: 0.55rem; }
   .mafia-lobby-main .mafia-section-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.4rem; margin-bottom: 0.55rem; }
@@ -113,12 +114,13 @@
   .mafia-floating-chat-button { right: max(0.55rem, env(safe-area-inset-right)); bottom: max(5.35rem, calc(env(safe-area-inset-bottom) + 4.75rem)); min-height: 40px; padding: 0.5rem 0.7rem; }
   .mafia-chat-drawer { right: 0.4rem; bottom: max(5.1rem, calc(env(safe-area-inset-bottom) + 4.5rem)); width: calc(100vw - 0.8rem); max-height: calc(100dvh - 5.9rem); border-radius: 11px; padding: 0.6rem; }
   .mafia-chat-drawer .mafia-chat-panel { height: calc(100dvh - 10rem); min-height: 280px; }
-  .mafia-action-bar { overflow-x: auto; justify-content: flex-start; }
-  .mafia-action-bar > button { flex: 1 0 auto; }
+  .mafia-action-bar { overflow-x: hidden; flex-wrap: wrap; justify-content: center; gap: 0.4rem; padding: 0.5rem; }
+  .mafia-action-bar > button { min-width: 0; flex: 1 1 120px; padding: 0.65rem 0.7rem; font-size: 0.68rem; white-space: normal; }
   .mafia-action-bar .mafia-muted-copy { display: none; }
   .mafia-lobby-actions { justify-content: flex-start; }
   .mafia-lobby-actions > .mafia-primary-button,
-  .mafia-lobby-actions > .mafia-secondary-button { min-width: 145px; }
+  .mafia-lobby-actions > .mafia-secondary-button { min-width: 0; }
+  .mafia-lobby-actions .mafia-video-controls { min-width: 0; flex: 1 1 100%; }
   .mafia-video-controls { flex-wrap: nowrap; }
   .mafia-video-controls button { padding: 0.55rem 0.7rem; font-size: 0.66rem; }
   .mafia-phase-header { align-items: center; }
@@ -138,6 +140,21 @@
   .mafia-results-actions { flex-direction: column-reverse; }
   .mafia-results-actions button { width: 100%; }
   .mafia-modal { max-height: calc(100dvh - 0.5rem); border-radius: 10px; }
+  .mafia-device-backdrop { padding: 0.35rem; }
+  .mafia-device-modal { max-height: calc(100dvh - 0.7rem); padding: 0.7rem; }
+  .mafia-device-modal .mafia-modal-close { top: 0.45rem; right: 0.45rem; width: 30px; height: 30px; min-height: 30px; font-size: 1rem; }
+  .mafia-device-modal > .mafia-eyebrow { font-size: 0.52rem; }
+  .mafia-device-modal > h2 { max-width: calc(100% - 2rem); margin: 0.15rem 0 0.25rem; font-size: 1.25rem; }
+  .mafia-device-modal > p { max-width: calc(100% - 1rem); margin: 0; font-size: 0.62rem; line-height: 1.35; }
+  .mafia-device-modal .mafia-device-list { gap: 0.35rem; margin-top: 0.55rem; }
+  .mafia-device-modal .mafia-device-list > label { gap: 0.25rem; border-radius: 7px; padding: 0.45rem; }
+  .mafia-device-modal .mafia-device-list strong { font-size: 0.68rem; }
+  .mafia-device-modal .mafia-device-list select { min-height: 36px; padding: 0.4rem 0.5rem; font-size: 0.68rem; }
+  .mafia-device-modal .mafia-device-list span { font-size: 0.54rem; line-height: 1.3; }
+  .mafia-device-modal .mafia-modal-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem; margin-top: 0.55rem; }
+  .mafia-device-modal .mafia-modal-actions .mafia-primary-button { grid-column: 1 / -1; }
+  .mafia-device-modal .mafia-primary-button,
+  .mafia-device-modal .mafia-secondary-button { min-height: 36px; padding: 0.45rem 0.55rem; font-size: 0.62rem; }
   .mafia-host-tools-backdrop { padding: 0.35rem; }
   .mafia-host-tools-modal { max-height: calc(100dvh - 0.7rem); padding: 0.7rem; }
   .mafia-host-tools-modal .mafia-modal-close { top: 0.45rem; right: 0.45rem; width: 30px; height: 30px; min-height: 30px; font-size: 1rem; }

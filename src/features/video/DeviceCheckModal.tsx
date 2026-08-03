@@ -23,7 +23,7 @@ export function DeviceCheckModal({ open, onClose, provider, devices, joined, roo
   }
 
   return (
-    <div className="mafia-modal-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="mafia-modal-backdrop mafia-device-backdrop" role="presentation" onMouseDown={onClose}>
       <section className="mafia-modal mafia-device-modal" role="dialog" aria-modal="true" aria-labelledby="device-title" onMouseDown={(event) => event.stopPropagation()}>
         <button className="mafia-modal-close" onClick={onClose} aria-label="Закрыть">×</button>
         <span className="mafia-eyebrow">Перед игрой</span>

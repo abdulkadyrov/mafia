@@ -163,7 +163,7 @@ export function RoomLobbyScreen({
             video.joined ? (
               <VideoControls provider={video.provider} cameraEnabled={video.cameraEnabled} microphoneEnabled={video.microphoneEnabled} microphoneAllowed joined onSettings={() => setShowDevices(true)} />
             ) : (
-              <button className="mafia-secondary-button" onClick={() => setShowDevices(true)}>Проверить камеру и микрофон</button>
+              <button className="mafia-secondary-button" onClick={() => setShowDevices(true)}>Камера и микрофон</button>
             )
           ) : <span className="mafia-muted-copy">Видеосвязь отключена ведущим</span>}
           {!snapshot.self.isHost ? (
